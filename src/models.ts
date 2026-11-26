@@ -1,0 +1,1419 @@
+import chalk from 'chalk';
+import {
+  ProviderType,
+  IUBCLIConfig,
+  saveConfig,
+  formatProviderLabel,
+  PROVIDER_LABELS,
+  PROVIDER_KEY_URLS,
+  getEnvProviderKey,
+  POLLINATIONS_BASE_URL,
+  POLLINATIONS_DEFAULT_MODEL,
+  POLLINATIONS_FREE_API_KEY,
+  detectLocalOllamaModels,
+} from './config.js';
+import { createSpinner } from './ui.js';
+import { prepareInteractiveArea, interactiveSelect, interactiveInput } from './prompt.js';
+
+export interface AgentModelPreset {
+  id: string;
+  name: string;
+  provider: ProviderType;
+  category: 'free' | 'gemini' | 'deepseek' | 'hy4' | 'glm' | 'groq' | 'flagship' | 'local' | 'zen';
+  description: string;
+  badge: string;
+  baseURL?: string;
+  contextLength?: string;
+}
+
+export const AGENT_MODELS: AgentModelPreset[] = [
+  // ==========================================
+  // 🚀 Built-in Zero-Key Instant Free Model
+  // ==========================================
+  {
+    id: POLLINATIONS_DEFAULT_MODEL,
+    name: 'Zero-Key Built-in Free AI (GPT-OSS 20B)',
+    provider: 'custom',
+    category: 'free',
+    description: 'No API key required! Built-in public endpoint (~45s cooldown/reply).',
+    badge: 'Zero-Key',
+    contextLength: '128,000',
+    baseURL: POLLINATIONS_BASE_URL,
+  },
+  // ==========================================
+  // 🌟 100% Free OpenRouter Models (Zero Cost)
+  // ==========================================
+  {
+    id: 'openrouter/free',
+    name: 'OpenRouter Free Agent (🌟 Recommended)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Auto-routes to the best active free coding model with tool calling. 0% downtime.',
+    badge: '100% Free',
+    contextLength: '200k',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'particle-ai/particle-1:free',
+    name: 'Particle-1 Agentic Coder (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Specialized token-efficient agentic coding model from Particle AI with 1M tokens.',
+    badge: '1M Free',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    name: 'NVIDIA Nemotron 3 Ultra 550B (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Massive 550B parameter frontier reasoning & orchestration model from NVIDIA.',
+    badge: '550B Free',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'google/gemma-4-31b-it:free',
+    name: 'Google Gemma 4 31B Instruct (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: "Google DeepMind's 30.7B dense multimodal coding & instruction model.",
+    badge: '31B Free',
+    contextLength: '262,144',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Google Gemma 4 26B A4B MoE (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Fast instruction-tuned Mixture-of-Experts coding model from Google.',
+    badge: 'MoE Free',
+    contextLength: '262,144',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nvidia/nemotron-3.5-lightning:free',
+    name: 'NVIDIA Nemotron 3.5 Lightning (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Ultra-fast open mixture-of-experts model optimized for speed & code.',
+    badge: 'Fast 1M',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl:free',
+    name: 'NVIDIA Nemotron 3.5 Super VL (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Multimodal vision and code reasoning model from NVIDIA.',
+    badge: 'Vision 1M',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    name: 'NVIDIA Nemotron 3 Nano Omni 30B (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: '30B-A3B reasoning agent model designed for agentic workflows.',
+    badge: 'Reasoning',
+    contextLength: '256,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'baidu/ernie-5.5-flash-preview:free',
+    name: 'Baidu ERNIE 5.5 Flash (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: "Baidu's latest flagship foundation model with 1 Million token context.",
+    badge: '1M Free',
+    contextLength: '1,024,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'inclusionai/ling-3.2-flash:free',
+    name: 'InclusionAI Ling 3.2 Flash (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Hybrid reasoning model with 1 Million token context window.',
+    badge: '1M Free',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'liquid/lfm-3-1.7b:free',
+    name: 'LiquidAI LFM3 1.7B (256k Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Ultra-lightweight high-speed neural model with 256k context.',
+    badge: 'Lightweight',
+    contextLength: '262,144',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'recursive/flint-v1.0:free',
+    name: 'Recursive Flint MoE (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Open mixture-of-experts model with 262k token context.',
+    badge: 'MoE Free',
+    contextLength: '262,144',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'dots-studio/dots-3-note-preview:free',
+    name: 'Dots3 Note Preview (512k Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Specialized 512,000 token context reasoning and code preview model.',
+    badge: '512k Free',
+    contextLength: '512,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'google/lyria-3-pro-preview',
+    name: 'Google Lyria 3 Pro Preview (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: "Google DeepMind's ultra-long context multimodal reasoning model, 100% free on OpenRouter.",
+    badge: '1M Free',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'google/lyria-3-clip-preview',
+    name: 'Google Lyria 3 Clip Preview (1M Context)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'High-speed long-context preview model from Google DeepMind with 1M token context.',
+    badge: '1M Free',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    name: 'Meta Llama 3.3 70B Instruct (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: "Meta's flagship open-weights 70B model with 128k context on OpenRouter free tier.",
+    badge: '70B Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'qwen/qwen-2.5-coder-32b-instruct:free',
+    name: 'Qwen 2.5 Coder 32B Instruct (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Specialized 32B programming model tuned for full-stack autonomous building.',
+    badge: 'Coder Free',
+    contextLength: '32,768',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'mistralai/mistral-small-24b-instruct-2501:free',
+    name: 'Mistral Small 24B Instruct (Free)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Compact, fast reasoning and code generation model from Mistral AI on free tier.',
+    badge: '24B Free',
+    contextLength: '32,768',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'deepseek/deepseek-r1:free',
+    name: 'DeepSeek R1 Reasoner (Free on OpenRouter)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Frontier reasoning chain-of-thought model served for free on OpenRouter.',
+    badge: 'R1 Free',
+    contextLength: '64,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'deepseek/deepseek-chat:free',
+    name: 'DeepSeek V3 Chat (Free on OpenRouter)',
+    provider: 'openrouter',
+    category: 'free',
+    description: 'Leading 671B parameter coding and instruction model served for free on OpenRouter.',
+    badge: 'V3 Free',
+    contextLength: '64,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // ==========================================
+  // ⚡ OpenCode Console & Freebuff Zero-Key Built-in Models ($0 Endpoints)
+  // ==========================================
+  // 1. Zero-Retention / No-Training Models:
+  {
+    id: 'deepseek-v4.1-flash-free',
+    name: 'OpenCode Console: DeepSeek V4.1 Flash Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Zero-retention / no-training built-in free coding endpoint from OpenCode Console.',
+    badge: 'Zero-Retention',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'glm-5.3-flash-free',
+    name: 'OpenCode Console: GLM 5.3 Flash Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Zero-retention fast instruction-tuned bilingual coder from OpenCode Console.',
+    badge: 'Zero-Retention',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'longcat-2.5-preview-free',
+    name: 'OpenCode Console: LongCat 2.5 Preview Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Zero-retention ultra-long context preview model with zero data storage.',
+    badge: 'Zero-Retention',
+    contextLength: '256,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // 2. Retained / Training-Enabled Models:
+  {
+    id: 'beam-free',
+    name: 'OpenCode Console: Beam Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'High-reasoning free agent model (retained 30 days, region-flexible).',
+    badge: 'Console Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'big-pickle',
+    name: 'OpenCode Stealth: Big Pickle',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Stealth reasoning model for challenging coding and logic tasks.',
+    badge: 'Stealth Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'flint-40b-free',
+    name: 'OpenCode Console: Flint 40B MoE Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Open mixture-of-experts 40B programming model from OpenCode Console.',
+    badge: 'MoE Free',
+    contextLength: '262,144',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'exo-free',
+    name: 'OpenCode Console: Exo Distributed Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Distributed cluster agent endpoint running without API key limits.',
+    badge: 'Distributed Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'mimo-v2.6-flash-free',
+    name: 'OpenCode Console: MiMo v2.6 Flash Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Ultra-low latency sub-second code generation endpoint.',
+    badge: 'Flash Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'mimo-v2.5-free',
+    name: 'OpenCode Console: MiMo v2.5 Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Full-stack agentic coding model from OpenCode Console roster.',
+    badge: 'Console Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // 3. NVIDIA Trial Endpoints:
+  {
+    id: 'nemotron-3-ultra-free',
+    name: 'NVIDIA Trial: Nemotron 3 Ultra Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'NVIDIA trial endpoint with 1 Million token massive context window.',
+    badge: 'Trial 1M Free',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nemotron-3.5-lightning-free',
+    name: 'NVIDIA Trial: Nemotron 3.5 Lightning Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Ultra-fast inference trial endpoint for instant code completions.',
+    badge: 'Trial Fast Free',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'nemotron-3.5-super-vl-free',
+    name: 'NVIDIA Trial: Nemotron 3.5 Super VL Free',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Multimodal vision and code trial endpoint from NVIDIA.',
+    badge: 'Trial Vision Free',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // 4. Freebuff Allowance Models:
+  {
+    id: 'solar-mini-4',
+    name: 'Freebuff Allowance: Upstage Solar Mini 4',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Unmetered high-efficiency coding model from Upstage on Freebuff.',
+    badge: 'Unmetered Free',
+    contextLength: '64,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'solar-pro-4',
+    name: 'Freebuff Allowance: Upstage Solar Pro 4',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Frontier reasoning and codebase generation agent.',
+    badge: 'Freebuff Pro',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'mimo-2.5-pro',
+    name: 'Freebuff Allowance: MiMo 2.5 Pro',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Autonomous coding builder from Freebuff daily allowance roster.',
+    badge: 'Freebuff Pro',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'minimax-m3',
+    name: 'Freebuff Allowance: MiniMax M3',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Massive 1M token context reasoning and architecture agent.',
+    badge: '1M Context',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'gpt-6-luna',
+    name: 'Freebuff Allowance: GPT-6 Luna Preview',
+    provider: 'openrouter',
+    category: 'zen',
+    description: 'Next-gen frontier reasoning model preview from Freebuff allowance.',
+    badge: 'Frontier Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // 5. Tencent CodeBuddy CLI & Antigravity Models:
+  {
+    id: 'tencent/hunyuan-hy3',
+    name: 'CodeBuddy CLI: Tencent Hunyuan Hy3',
+    provider: 'openrouter',
+    category: 'hy4',
+    description: 'High-speed bilingual Chinese & English coding model from Tencent CodeBuddy.',
+    badge: 'CodeBuddy Free',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'gemini-4-argon',
+    name: 'Antigravity CLI: Gemini 4 Argon Frontier',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Frontier multi-agent reasoning model with 2M token context from Antigravity.',
+    badge: 'Frontier 2M',
+    contextLength: '2,097,152',
+  },
+
+  // ==========================================
+  // 🔷 Google Gemini Suite (100% Free Tier: 1M Tokens, 1,500 Req/Day)
+  // ==========================================
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite (🌟 Verified Active Free Coder)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: "Google's ultra-fast verified free model with full tool calling, instant token generation, and zero downtime.",
+    badge: '100% Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash (Flagship Multimodal Free)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: "Google's flagship multimodal model with tool calling, high reasoning, and 1,500 req/day free.",
+    badge: 'Flagship Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash (Enhanced Coding Reasoning)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Advanced reasoning model with full tool execution and multi-turn architectural logic.',
+    badge: '3.6 Flash',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash Preview (Frontier Flash)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Frontier flash reasoning model optimized for continuous autonomous build execution.',
+    badge: '3.7 Preview',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash Preview (2M Context)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Massive 2 Million token context preview model for large-scale multi-file codebases.',
+    badge: '2M Preview',
+    contextLength: '2,097,152',
+  },
+  {
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash-Lite (Ultra-Fast 30 RPM)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Ultra-low latency Gemini model with 30 requests/minute and 1M context.',
+    badge: '30 RPM Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemma-4-31b-it',
+    name: 'Gemma 4 31B Instruct (Google AI Studio Free)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Google DeepMind open-weights 31B coding model with native tool calling on Gemini API.',
+    badge: '31B Free',
+    contextLength: '262,144',
+  },
+  {
+    id: 'gemma-4-26b-a4b-it',
+    name: 'Gemma 4 26B A4B MoE (Google AI Studio Free)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Fast MoE coding model running natively on Google AI Studio free tier.',
+    badge: 'MoE Free',
+    contextLength: '262,144',
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash (Compatible Alias)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: "Compatible alias seamlessly routed to Gemini 3.5 Flash-Lite with 1,500 req/day free.",
+    badge: '100% Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-2.0-flash-lite',
+    name: 'Gemini 2.0 Flash-Lite (Ultra-Fast 30 RPM)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Ultra-low latency Gemini model with 30 requests/minute and 1M context.',
+    badge: '30 RPM Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash Preview (Next-Gen Flash)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Latest 2.5 generation preview model from Google DeepMind with enhanced coding logic.',
+    badge: '2.5 Preview',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro Preview (2M Context Frontier)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Deep architectural reasoning model with massive 2 Million token context window.',
+    badge: '2M Context',
+    contextLength: '2,097,152',
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash (Battle-Tested Stable)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Rock-solid stable Google Flash model with 1M context and 0% downtime.',
+    badge: '100% Free',
+    contextLength: '1,048,576',
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro (2M Context Long-Form)',
+    provider: 'gemini',
+    category: 'gemini',
+    description: 'Massive 2,097,152 token context window for large repo analysis.',
+    badge: '2M Free',
+    contextLength: '2,097,152',
+  },
+
+  // ==========================================
+  // 🧠 DeepSeek Frontier Models (Free Tokens & High Speed)
+  // ==========================================
+  {
+    id: 'deepseek-chat',
+    name: 'DeepSeek V4.1 / V3.2 Chat (🌟 5M Free Tokens)',
+    provider: 'custom',
+    category: 'deepseek',
+    description: 'DeepSeek flagship frontier coding model with 5M free tokens on platform.deepseek.com.',
+    badge: '5M Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.deepseek.com/v1',
+  },
+  {
+    id: 'deepseek-reasoner',
+    name: 'DeepSeek R1 Reasoner (Chain-of-Thought)',
+    provider: 'custom',
+    category: 'deepseek',
+    description: 'DeepSeek frontier reasoning model with free tokens on platform.deepseek.com.',
+    badge: 'R1 Reasoning',
+    contextLength: '128,000',
+    baseURL: 'https://api.deepseek.com/v1',
+  },
+  {
+    id: 'deepseek-r1-distill-llama-70b',
+    name: 'Groq: DeepSeek R1 Distill 70B (Free Tier)',
+    provider: 'custom',
+    category: 'deepseek',
+    description: '500+ tokens/sec DeepSeek R1 reasoning on Groq Cloud free tier (14,400 req/day free).',
+    badge: 'Groq Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'deepseek-r1-distill-qwen-32b',
+    name: 'Groq: DeepSeek R1 Distill Qwen 32B (Free Tier)',
+    provider: 'custom',
+    category: 'deepseek',
+    description: 'Ultra-fast specialized coding agent on Groq Cloud free tier.',
+    badge: 'Groq Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'deepseek/deepseek-v4.1-flash',
+    name: 'OpenRouter: DeepSeek V4.1 Flash (Latest 2026)',
+    provider: 'openrouter',
+    category: 'deepseek',
+    description: 'Latest high-efficiency DeepSeek V4.1 Flash architecture on OpenRouter.',
+    badge: 'V4.1 Flash',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'deepseek/deepseek-chat',
+    name: 'OpenRouter: DeepSeek V4 Frontier Coding',
+    provider: 'openrouter',
+    category: 'deepseek',
+    description: 'DeepSeek flagship coding and instruction model on OpenRouter.',
+    badge: 'DeepSeek SOTA',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // ==========================================
+  // ⚡ Tencent HY4 Suite (1M Token Context - Free Promotional Tokens)
+  // ==========================================
+  {
+    id: 'tencent/hy4-flash',
+    name: 'Tencent Hy4 Flash (🌟 1M Context - Free Promo)',
+    provider: 'openrouter',
+    category: 'hy4',
+    description: 'Tencent frontier Hy4 Flash model with 1,048,576 token context and ultra-fast generation.',
+    badge: 'Hy4 1M Flash',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'tencent/hy4',
+    name: 'Tencent Hy4 (1M Context Frontier Reasoning)',
+    provider: 'openrouter',
+    category: 'hy4',
+    description: 'Tencent flagship Hy4 architecture optimized for deep reasoning and code generation.',
+    badge: 'Hy4 1M Frontier',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'tencent/hy4-preview',
+    name: 'Tencent Hy4 Preview (Latest Checkpoint)',
+    provider: 'openrouter',
+    category: 'hy4',
+    description: 'Cutting-edge preview checkpoint of Tencent Hy4 with 1 Million token context.',
+    badge: 'Hy4 Preview',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // ==========================================
+  // 🚀 Zhipu AI GLM 5.3 Suite (Daily Free Tokens - 1M Context)
+  // ==========================================
+  {
+    id: 'z-ai/glm-5.3-flash',
+    name: 'GLM 5.3 Flash (🌟 Daily Free Tokens & 1M Context)',
+    provider: 'openrouter',
+    category: 'glm',
+    description: 'Z.ai latest GLM 5.3 Flash with 1,048,576 token context and daily free tokens on BigModel.',
+    badge: 'GLM 5.3 Flash',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'z-ai/glm-5.3',
+    name: 'GLM 5.3 Frontier (1M Context Full-Stack Coding)',
+    provider: 'openrouter',
+    category: 'glm',
+    description: 'Z.ai frontier GLM 5.3 model for complex coding, system design and architecture.',
+    badge: 'GLM 5.3 Frontier',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'z-ai/glm-5.3-flashx',
+    name: 'GLM 5.3 FlashX (High-Speed Throughput)',
+    provider: 'openrouter',
+    category: 'glm',
+    description: 'Optimized high-throughput version of GLM 5.3 with 1 Million token context.',
+    badge: 'GLM 5.3 FlashX',
+    contextLength: '1,048,576',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'z-ai/glm-5.3-prime',
+    name: 'GLM 5.3 Prime (Maximum Reasoning)',
+    provider: 'openrouter',
+    category: 'glm',
+    description: 'Prime tier GLM 5.3 reasoning agent for difficult algorithms and complex tasks.',
+    badge: 'GLM 5.3 Prime',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+
+  // ==========================================
+  // ⚡ Groq Cloud Free Tier (14,400 Req/Day Free)
+  // ==========================================
+  {
+    id: 'llama-3.3-70b-versatile',
+    name: 'Groq: Llama 3.3 70B Versatile (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: '500+ tokens/sec inference via Groq Cloud free tier (14,400 requests/day).',
+    badge: 'Groq Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'qwen-2.5-coder-32b',
+    name: 'Groq: Qwen 2.5 Coder 32B (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: 'Ultra-fast specialized coding agent via Groq Cloud free tier.',
+    badge: 'Groq Free',
+    contextLength: '32,768',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'deepseek-r1-distill-llama-70b',
+    name: 'Groq: DeepSeek R1 Distill 70B (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: 'High-speed reasoning model on Groq Cloud free tier.',
+    badge: 'Groq Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'llama-3.1-8b-instant',
+    name: 'Groq: Llama 3.1 8B Instant (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: 'Blazing fast low-latency model on Groq (14,400 requests/day free).',
+    badge: 'Groq Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+  {
+    id: 'gemma2-9b-it',
+    name: 'Groq: Gemma 2 9B IT (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: "Google's lightweight open model hosted at top speed on Groq Cloud free tier.",
+    badge: 'Groq Free',
+    contextLength: '8,192',
+    baseURL: 'https://api.groq.com/openai/v1',
+  },
+
+  // ==========================================
+  // ⚡ Cerebras Cloud Free Tier (1,800+ Tokens/Sec)
+  // ==========================================
+  {
+    id: 'llama3.3-70b',
+    name: 'Cerebras: Llama 3.3 70B (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: "World's fastest inference (1,000+ tokens/sec) on Cerebras Cloud free tier.",
+    badge: 'Cerebras Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.cerebras.ai/v1',
+  },
+  {
+    id: 'llama3.1-8b',
+    name: 'Cerebras: Llama 3.1 8B (Free Tier)',
+    provider: 'custom',
+    category: 'groq',
+    description: 'Ultra-high speed 1,800+ tokens/sec on Cerebras Cloud free tier.',
+    badge: 'Cerebras Free',
+    contextLength: '128,000',
+    baseURL: 'https://api.cerebras.ai/v1',
+  },
+
+  // ==========================================
+  // 💻 Local Offline Models (Ollama)
+  // ==========================================
+  {
+    id: 'qwen2.5-coder',
+    name: 'Local Ollama: Qwen 2.5 Coder',
+    provider: 'custom',
+    category: 'local',
+    description: 'Runs 100% offline and free on your local machine via Ollama.',
+    badge: 'Local Offline',
+    contextLength: 'Local RAM',
+    baseURL: 'http://localhost:11434/v1',
+  },
+  {
+    id: 'deepseek-r1',
+    name: 'Local Ollama: DeepSeek R1',
+    provider: 'custom',
+    category: 'local',
+    description: 'Local reasoning model on Ollama (http://localhost:11434/v1).',
+    badge: 'Local Offline',
+    contextLength: 'Local RAM',
+    baseURL: 'http://localhost:11434/v1',
+  },
+
+  // ==========================================
+  // 👑 Frontier AI Coding Agents (OpenCode Flagships)
+  // ==========================================
+  {
+    id: 'anthropic/claude-3.5-sonnet',
+    name: 'Claude 3.5 Sonnet (OpenCode Benchmark SOTA)',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'Autonomous full-stack engineering & architectural reasoning champion.',
+    badge: 'SOTA Coding',
+    contextLength: '200,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'openai/gpt-4o',
+    name: 'OpenAI GPT-4o Multimodal Agent',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'OpenAI flagship multimodal coding agent with fast tool calling.',
+    badge: 'GPT-4o',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'openai/o3-mini',
+    name: 'OpenAI o3-mini Reasoning Agent',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'High-speed mathematical & algorithmic chain-of-thought agent.',
+    badge: 'o3-mini',
+    contextLength: '200,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'mistralai/codestral-2508',
+    name: 'Mistral Codestral (Specialized Code Agent)',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'Leading European code-specific model with 256k context.',
+    badge: 'Codestral',
+    contextLength: '256,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'qwen/qwen-2.5-coder-32b-instruct',
+    name: 'Qwen 2.5 Coder 32B Instruct',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'Frontier programming model tuned specifically for autonomous building.',
+    badge: 'Qwen Coder',
+    contextLength: '32,768',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'meta-llama/llama-3.3-70b-instruct',
+    name: 'Meta Llama 3.3 70B Instruct',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: "Meta's flagship open-weights frontier model with 128k context.",
+    badge: 'Llama 70B',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'anthropic/claude-3.5-haiku',
+    name: 'Claude 3.5 Haiku (High Speed)',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'High-speed code completion and execution agent from Anthropic.',
+    badge: 'Fast Coding',
+    contextLength: '200,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'x-ai/grok-2-1212',
+    name: 'xAI Grok 2',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: "xAI's frontier model with strong coding and mathematical problem-solving.",
+    badge: 'xAI Grok',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'moonshotai/kimi-k1.5',
+    name: 'Moonshot Kimi K1.5 (Long Context)',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'Advanced multimodal reasoning model with ultra-long context capabilities.',
+    badge: 'Kimi K1.5',
+    contextLength: '128,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  {
+    id: 'minimax/minimax-01',
+    name: 'MiniMax 01 (1M Context Agent)',
+    provider: 'openrouter',
+    category: 'flagship',
+    description: 'Massive 1 Million token context reasoning and software building agent.',
+    badge: '1M Context',
+    contextLength: '1,000,000',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+];
+
+/**
+ * Intelligent Auto-Cascade Chains:
+ * If tokens run out (429) or high demand (503) occurs, the agent automatically
+ * cascades to the next best intelligent free model seamlessly.
+ */
+
+export const OPENROUTER_FREE_CASCADE_CHAIN = [
+  'openrouter/free',
+  'nvidia/nemotron-3.5-lightning:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'particle-ai/particle-1:free',
+  'inclusionai/ling-3.2-flash:free',
+  'baidu/ernie-5.5-flash-preview:free',
+  'nvidia/nemotron-3.5-super-vl:free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'recursive/flint-v1.0:free',
+  'liquid/lfm-3-1.7b:free',
+];
+
+export function normalizeGeminiModel(model: string): string {
+  if (!model) return 'gemini-3.5-flash-lite';
+  if (
+    model === 'gemini-2.0-flash' ||
+    model === 'gemini-2.0-flash-lite' ||
+    model === 'gemini-1.5-flash' ||
+    model === 'gemini-1.5-flash-8b' ||
+    model === 'gemini-2.5-flash-lite' ||
+    model === 'gemini-2.5-flash' ||
+    model === 'gemini-2.5-pro'
+  ) {
+    return 'gemini-3.5-flash-lite';
+  }
+  if (model === 'gemini-1.5-pro') {
+    return 'gemini-3.5-flash';
+  }
+  return model;
+}
+
+export const GEMINI_CASCADE_CHAIN = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemma-4-31b-it',
+  'gemma-4-26b-a4b-it',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
+  'gemini-omni-flash-preview',
+  'gemini-4-argon',
+  'gemini-4-carbon',
+  'gemini-4-hydrogen',
+  'gemini-4-neon',
+];
+
+export const GROQ_CASCADE_CHAIN = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'qwen-2.5-coder-32b',
+  'mixtral-8x7b-32768',
+  'deepseek-r1-distill-llama-70b',
+  'gemma2-9b-it',
+];
+
+export const DEEPSEEK_CASCADE_CHAIN = [
+  'deepseek-chat',
+  'deepseek-reasoner',
+];
+
+export const POLLINATIONS_CASCADE_CHAIN = [
+  'openai',
+  'deepseek',
+  'mistral',
+  'qwen-coder',
+];
+
+/**
+ * Fetch live free, tool-capable coding models from OpenRouter API in real time.
+ */
+export async function fetchLiveOpenRouterFreeModels(): Promise<AgentModelPreset[]> {
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { 'User-Agent': 'IUB CLI' },
+    });
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as any;
+    const rawList = data?.data || [];
+
+    const freeModels: AgentModelPreset[] = rawList
+      .filter((m: any) => {
+        const isFree =
+          m.id === 'openrouter/free' ||
+          m.id?.endsWith(':free') ||
+          (m.pricing && m.pricing.prompt === '0' && m.pricing.completion === '0');
+        if (!isFree) return false;
+        // Skip audio/music models and models that explicitly reject tool calling
+        if (m.id?.includes('lyria')) return false;
+        if (Array.isArray(m.supported_parameters) && !m.supported_parameters.includes('tools')) {
+          return false;
+        }
+        return true;
+      })
+      .map((m: any) => ({
+        id: m.id,
+        name: m.name || m.id,
+        provider: 'openrouter' as ProviderType,
+        category: 'free' as const,
+        description: m.description ? m.description.slice(0, 80) + '...' : 'Free model on OpenRouter',
+        badge: 'Live Free',
+        contextLength: m.context_length ? `${Math.round(m.context_length / 1000)}k` : 'Free',
+        baseURL: 'https://openrouter.ai/api/v1',
+      }));
+
+    return freeModels;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * OpenCode-style interactive AI Agent Model Selector.
+ */
+export async function selectAgentModelInteractive(
+  currentConfig: IUBCLIConfig,
+  mode: 'build' | 'plan' = 'build',
+  initialCategory?: string
+): Promise<IUBCLIConfig | null> {
+  const headerHeight = prepareInteractiveArea(
+    formatProviderLabel(currentConfig),
+    currentConfig.model,
+    mode
+  );
+
+  const termRows = process.stdout.rows || 24;
+  const availableRows = Math.max(4, termRows - headerHeight - 8);
+  const selectMaxItems = Math.max(3, Math.min(6, availableRows));
+
+  const hasGeminiReady = Boolean(
+    currentConfig.savedProviders?.gemini?.apiKey ||
+      getEnvProviderKey('gemini') ||
+      (currentConfig.provider === 'gemini' && currentConfig.apiKey)
+  );
+  const hasOpenRouterReady = Boolean(
+    currentConfig.savedProviders?.openrouter?.apiKey ||
+      getEnvProviderKey('openrouter') ||
+      (currentConfig.provider === 'openrouter' && currentConfig.apiKey)
+  );
+  const hasGroqReady = Boolean(
+    process.env.GROQ_API_KEY ||
+      (currentConfig.savedProviders?.custom?.baseURL?.includes('groq.com') &&
+        currentConfig.savedProviders?.custom?.apiKey)
+  );
+
+  const orBadge = hasOpenRouterReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs OpenRouter Key]');
+  const geminiBadge = hasGeminiReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs Gemini Key]');
+  const groqBadge = hasGroqReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs Groq Key]');
+
+  const currentPreset = AGENT_MODELS.find((m) => m.id === currentConfig.model);
+  const defaultCategory =
+    currentPreset?.category ||
+    (currentConfig.provider === 'gemini' ? 'gemini' : currentConfig.provider === 'openrouter' ? 'free' : 'free');
+
+  console.log(chalk.bold.hex('#00A3FF')('\n🤖 IUB CLI AI Agent & Model Selector\n'));
+
+  // 1. Choose Category (or use initialCategory shortcut)
+  let categoryChoice = initialCategory;
+  if (!categoryChoice) {
+    categoryChoice = (await interactiveSelect({
+      message: 'Select Agent Category:',
+      initialValue: defaultCategory,
+      maxItems: selectMaxItems,
+      options: [
+        {
+          value: 'gemini',
+          label: `${chalk.bold.yellow('🔷 Google Gemini Free Suite')}${geminiBadge}`,
+          hint: 'Gemini 3.5/3.1 Flash Lite, Gemma 4 • 1M-2M context, 1,500 req/day free',
+        },
+        {
+          value: 'free',
+          label: `${chalk.bold.green('🌟 Free Models & Zero-Key Starter AI')}${orBadge}`,
+          hint: 'Includes Zero-Key GPT-OSS 20B (no key) + OpenRouter free models (Nemotron, Gemma 4)',
+        },
+        {
+          value: 'live_sync',
+          label: `${chalk.bold.hex('#00FFFF')('🔄 Live Sync: OpenRouter Active Free Models')}${orBadge}`,
+          hint: 'Queries OpenRouter API live for active tool-capable free models',
+        },
+        {
+          value: 'zen',
+          label: `${chalk.bold.hex('#00E5FF')('⚡ OpenCode & Freebuff Built-in Roster')}${orBadge}`,
+          hint: 'DeepSeek V4.1, GLM 5.3, Solar routed via OpenRouter',
+        },
+        {
+          value: 'deepseek',
+          label: `${chalk.bold.hex('#00D2FF')('🧠 DeepSeek Frontier Models')}`,
+          hint: 'DeepSeek Platform (5M free), Groq & OpenRouter',
+        },
+        {
+          value: 'hy4',
+          label: `${chalk.bold.hex('#FF6D00')('⚡ Tencent HY4 Suite')}${orBadge}`,
+          hint: 'Hy4 Flash, Hy4 1M Frontier (1M tokens context)',
+        },
+        {
+          value: 'glm',
+          label: `${chalk.bold.hex('#7C4DFF')('🚀 Zhipu AI GLM 5.3 Suite')}${orBadge}`,
+          hint: 'GLM 5.3 Flash, GLM 5.3 1M (daily free tokens)',
+        },
+        {
+          value: 'groq',
+          label: `${chalk.bold.hex('#FF9900')('⚡ Groq & Cerebras Free Tier')}${groqBadge}`,
+          hint: 'Llama 3.3 70B, Qwen Coder • 14,400 requests/day, 500+ tok/s',
+        },
+        {
+          value: 'flagship',
+          label: `${chalk.bold.hex('#FFD700')('👑 Frontier Flagship Coding Agents')}${orBadge}`,
+          hint: 'Claude 3.5 Sonnet, GPT-4o, Codestral via OpenRouter',
+        },
+        {
+          value: 'local',
+          label: `${chalk.bold.magenta('💻 Local Offline Models')} ${chalk.green('[✔ No API Key Needed]')}`,
+          hint: 'Runs 100% locally via Ollama on localhost:11434',
+        },
+        {
+          value: 'all',
+          label: `${chalk.bold('📋 Browse All Model Presets')}`,
+          hint: 'View complete catalog of all presets',
+        },
+        {
+          value: 'custom',
+          label: `${chalk.bold('✏️  Enter Custom Model ID Manually')}`,
+          hint: 'Type any model slug for your current provider',
+        },
+      ],
+    })) as string;
+
+    if (!categoryChoice) return null;
+  }
+
+  // Handle custom input
+  if (categoryChoice === 'custom') {
+    const customModel = await interactiveInput({
+      message: 'Enter model ID:',
+      initialValue: currentConfig.model,
+      validate: (v) => (!v || v.trim().length === 0 ? 'Model ID cannot be empty!' : undefined),
+    });
+
+    if (!customModel) return null;
+
+    currentConfig.model = customModel.trim();
+    saveConfig(currentConfig);
+    console.log(chalk.green(`✔ Active Agent Model set to: ${chalk.bold(currentConfig.model)}\n`));
+    return currentConfig;
+  }
+
+  // Handle Live Sync from OpenRouter API
+  let modelsToShow: AgentModelPreset[] = [];
+
+  if (categoryChoice === 'live_sync') {
+    const spinner = createSpinner('Scanning OpenRouter API for all active free models in real-time...');
+    spinner.start();
+    const liveModels = await fetchLiveOpenRouterFreeModels();
+    spinner.stop();
+
+    if (liveModels.length > 0) {
+      console.log(chalk.green(`✔ Found ${liveModels.length} active free tool-capable models on OpenRouter!\n`));
+      modelsToShow = liveModels;
+    } else {
+      console.log(chalk.yellow('⚠️ Could not connect to OpenRouter live API. Falling back to built-in presets.\n'));
+      modelsToShow = AGENT_MODELS.filter((m) => m.category === 'free');
+    }
+  } else if (categoryChoice === 'local') {
+    const installedOllama = await detectLocalOllamaModels(700);
+    const dynamicPresets: AgentModelPreset[] = installedOllama.map((name) => ({
+      id: name,
+      name: `Local Ollama: ${name}`,
+      provider: 'custom',
+      category: 'local',
+      description: 'Detected running locally on Ollama (localhost:11434).',
+      badge: 'Installed Locally',
+      contextLength: 'Local RAM',
+      baseURL: 'http://localhost:11434/v1',
+    }));
+    const existingIds = new Set(dynamicPresets.map((m) => m.id));
+    modelsToShow = [
+      ...dynamicPresets,
+      ...AGENT_MODELS.filter((m) => m.category === 'local' && !existingIds.has(m.id)),
+    ];
+  } else if (categoryChoice === 'all') {
+    modelsToShow = AGENT_MODELS;
+  } else {
+    modelsToShow = AGENT_MODELS.filter((m) => m.category === categoryChoice);
+  }
+
+  const modelOptions = modelsToShow.map((m) => ({
+    value: m.id,
+    label: `${chalk.bold(m.name)} ${chalk.dim(`[${m.badge || m.category}]`)}`,
+    hint: `${m.contextLength ? `${m.contextLength} context • ` : ''}${m.description}`,
+  }));
+
+  const selectedModelId = await interactiveSelect({
+    message: 'Select AI Model:',
+    initialValue: currentConfig.model,
+    maxItems: selectMaxItems,
+    options: modelOptions,
+  });
+
+  if (!selectedModelId) return null;
+
+  const preset =
+    modelsToShow.find((m) => m.id === selectedModelId) ||
+    AGENT_MODELS.find((m) => m.id === selectedModelId);
+
+  if (!preset) return null;
+
+  const updatedConfig = await resolveAndSavePreset(preset, currentConfig);
+  if (!updatedConfig) return null;
+
+  console.log(
+    chalk.green(
+      `✔ Active Agent Model: ${chalk.bold(preset.name)}\n` +
+        `  Provider: ${chalk.bold(formatProviderLabel(updatedConfig))} • Model ID: ${chalk.cyan(preset.id)}\n`
+    )
+  );
+
+  return updatedConfig;
+}
+
+/**
+ * Shared credential resolver for switching presets cleanly without unexpected OpenRouter prompts.
+ */
+async function resolveAndSavePreset(
+  preset: AgentModelPreset,
+  currentConfig: IUBCLIConfig
+): Promise<IUBCLIConfig | null> {
+  const targetProvider = preset.provider;
+  let targetApiKey = currentConfig.apiKey;
+  let targetBaseURL = targetProvider === 'gemini' ? undefined : preset.baseURL || currentConfig.baseURL;
+
+  const isLocalOllama = Boolean(
+    preset.baseURL?.includes('localhost') ||
+      preset.baseURL?.includes('127.0.0.1') ||
+      preset.category === 'local'
+  );
+  const isBuiltInZeroKey = Boolean(preset.baseURL?.includes('pollinations.ai'));
+  const isCustomBaseUrlChange =
+    targetProvider === 'custom' &&
+    Boolean(preset.baseURL) &&
+    currentConfig.baseURL !== preset.baseURL;
+
+  if (isLocalOllama) {
+    targetApiKey = 'ollama';
+    targetBaseURL = preset.baseURL || 'http://localhost:11434/v1';
+  } else if (isBuiltInZeroKey) {
+    targetApiKey = POLLINATIONS_FREE_API_KEY;
+    targetBaseURL = POLLINATIONS_BASE_URL;
+  } else if (targetProvider !== currentConfig.provider || isCustomBaseUrlChange) {
+    const saved = currentConfig.savedProviders?.[targetProvider];
+    const specificEnvKey =
+      targetProvider === 'custom' && preset.baseURL?.includes('groq.com')
+        ? process.env.GROQ_API_KEY?.trim()
+        : targetProvider === 'custom' && preset.baseURL?.includes('deepseek.com')
+        ? process.env.DEEPSEEK_API_KEY?.trim()
+        : getEnvProviderKey(targetProvider);
+
+    const savedIsPlaceholder =
+      saved?.apiKey === POLLINATIONS_FREE_API_KEY || saved?.apiKey === 'ollama';
+
+    const savedMatchesCustomUrl =
+      targetProvider !== 'custom' ||
+      !preset.baseURL ||
+      !saved?.baseURL ||
+      saved.baseURL.replace(/\/+$/, '') === preset.baseURL.replace(/\/+$/, '');
+
+    if (saved && saved.apiKey && !savedIsPlaceholder && savedMatchesCustomUrl) {
+      targetApiKey = saved.apiKey;
+      targetBaseURL = targetProvider === 'gemini' ? undefined : preset.baseURL || saved.baseURL;
+    } else if (specificEnvKey) {
+      targetApiKey = specificEnvKey;
+      targetBaseURL = targetProvider === 'gemini' ? undefined : preset.baseURL;
+    } else {
+      const serviceName = preset.baseURL?.includes('groq.com')
+        ? 'Groq Cloud'
+        : preset.baseURL?.includes('deepseek.com')
+        ? 'DeepSeek'
+        : preset.baseURL?.includes('cerebras.ai')
+        ? 'Cerebras'
+        : PROVIDER_LABELS[targetProvider];
+
+      const serviceUrl = preset.baseURL?.includes('groq.com')
+        ? 'https://console.groq.com/keys'
+        : preset.baseURL?.includes('deepseek.com')
+        ? 'https://platform.deepseek.com/api_keys'
+        : preset.baseURL?.includes('cerebras.ai')
+        ? 'https://cloud.cerebras.ai'
+        : PROVIDER_KEY_URLS[targetProvider];
+
+      const promptChoice = await interactiveSelect<'enter' | 'cancel'>({
+        message: `${serviceName} requires an API key to use "${preset.id}". What would you like to do?`,
+        options: [
+          {
+            value: 'cancel',
+            label: chalk.green(`⬅ Keep using current model (${currentConfig.model})`),
+            hint: 'Do not ask for a key — keep working immediately',
+          },
+          {
+            value: 'enter',
+            label: chalk.cyan(`🔑 Enter API Key for ${serviceName}`),
+            hint: serviceUrl,
+          },
+        ],
+      });
+
+      if (!promptChoice || promptChoice === 'cancel') {
+        return null;
+      }
+
+      console.log(chalk.white('  Get API key for ' + serviceName + ': ') + chalk.bold.underline.cyan(serviceUrl) + '\n');
+
+      const enteredKey = await interactiveInput({
+        message: `Enter API Key for ${serviceName}:`,
+        mask: true,
+        validate: (v) => (!v || v.trim().length === 0 ? 'Key cannot be empty!' : undefined),
+      });
+
+      if (!enteredKey) return null;
+      targetApiKey = enteredKey.trim();
+      targetBaseURL = targetProvider === 'gemini' ? undefined : preset.baseURL;
+    }
+  } else if (targetProvider === 'openrouter') {
+    targetBaseURL = 'https://openrouter.ai/api/v1';
+  }
+
+  const updatedConfig: IUBCLIConfig = {
+    ...currentConfig,
+    provider: targetProvider,
+    apiKey: targetApiKey,
+    model: preset.id,
+    ...(targetBaseURL ? { baseURL: targetBaseURL } : {}),
+    savedProviders: {
+      ...currentConfig.savedProviders,
+      [targetProvider]: {
+        apiKey: targetApiKey,
+        model: preset.id,
+        ...(targetBaseURL ? { baseURL: targetBaseURL } : {}),
+      },
+    },
+  };
+  if (!targetBaseURL) {
+    delete (updatedConfig as any).baseURL;
+  }
+
+  saveConfig(updatedConfig);
+  return updatedConfig;
+}
+
+/**
+ * Search for an available preset by model ID or fuzzy name.
+ */
+export function findModelByQuery(query: string): AgentModelPreset | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+
+  // 1. Exact ID
+  const exact = AGENT_MODELS.find((m) => m.id.toLowerCase() === q);
+  if (exact) return exact;
+
+  // 2. Starts with ID
+  const starts = AGENT_MODELS.find((m) => m.id.toLowerCase().startsWith(q));
+  if (starts) return starts;
+
+  // 3. Substring ID
+  const sub = AGENT_MODELS.find((m) => m.id.toLowerCase().includes(q));
+  if (sub) return sub;
+
+  // 4. Name substring
+  const nameSub = AGENT_MODELS.find((m) => m.name.toLowerCase().includes(q));
+  if (nameSub) return nameSub;
+
+  return null;
+}
+
+/**
+ * Switch model directly to a target preset without showing the full interactive menu.
+ */
+export async function applyModelDirect(
+  preset: AgentModelPreset,
+  currentConfig: IUBCLIConfig
+): Promise<IUBCLIConfig | null> {
+  return resolveAndSavePreset(preset, currentConfig);
+}

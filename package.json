@@ -1,0 +1,64 @@
+{
+  "name": "iubcli",
+  "version": "4.2.9",
+  "description": "IUB CLI — production-grade, next-generation BYOK autonomous terminal coding agent that speaks Bangla, Banglish & English with codebase grep search, dynamic free model explorer & auto-recovery, multimodal screenshot & image pasting, web ingestion, bracketed paste protection, auto-cascade resilience and OpenCode-style Build & Plan modes.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "iubcli": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test-tools.ts && tsx scripts/test-image.ts && tsx scripts/test-box.ts",
+    "start": "node ./dist/index.js"
+  },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "iub",
+    "iubcli",
+    "bangla",
+    "banglish",
+    "byok",
+    "terminal",
+    "gemini",
+    "openrouter",
+    "deepseek"
+  ],
+  "author": "Ifaz MD Zahin (https://github.com/ifazmdzahin)",
+  "license": "MIT",
+  "homepage": "https://iubcli.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ifazmdzahin/iubcli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ifazmdzahin/iubcli/issues"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.9.0",
+    "@google/genai": "^3.6.1",
+    "chalk": "^6.0.1",
+    "commander": "^15.1.0",
+    "conf": "^16.0.0",
+    "marked": "^18.2.1",
+    "marked-terminal": "^8.0.0",
+    "openai": "^7.62.0",
+    "ora": "^10.0.0",
+    "string-width": "^4.2.3",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/marked-terminal": "^6.1.1",
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15"
+  }
+}
