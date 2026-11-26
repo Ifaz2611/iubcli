@@ -255,11 +255,7 @@ export class IUBAgent {
 
     if (this.config.provider === 'gemini') {
       const normalized = normalizeGeminiModel(this.config.model);
-      if (!normalized || !GEMINI_CASCADE_CHAIN.includes(normalized)) {
-        this.config.model = 'gemini-3.5-flash-lite';
-      } else {
-        this.config.model = normalized;
-      }
+      this.config.model = normalized || 'gemini-3.5-flash-lite';
       delete (this.config as any).baseURL;
       this.geminiClient = new GoogleGenAI({ apiKey: this.config.apiKey });
       this.openAIClient = undefined;
@@ -281,6 +277,7 @@ export class IUBAgent {
    * Set agent mode (build or plan) and update prompt instructions.
    */
   public setMode(mode: AgentMode): void {
+    if (this.mode === mode) return;
     this.mode = mode;
     this.updateSystemPrompt();
   }
@@ -348,12 +345,25 @@ export class IUBAgent {
   }
 
   /**
-   * Update configuration and recreate clients.
+   * Update configuration and recreate clients while preserving conversation history by default.
    */
-  public updateConfig(newConfig: IUBCLIConfig): void {
+  public updateConfig(newConfig: IUBCLIConfig, resetHistory = false): void {
+    const prevProvider = this.config.provider;
     this.config = newConfig;
     this.initClients();
-    this.resetHistory();
+
+    if (resetHistory) {
+      this.resetHistory();
+      return;
+    }
+
+    if (prevProvider !== 'gemini' && newConfig.provider === 'gemini') {
+      this.syncMessagesToGemini();
+    } else if (prevProvider === 'gemini' && newConfig.provider !== 'gemini') {
+      this.syncMessagesToOpenAI();
+    } else if (newConfig.provider !== 'gemini' && this.openAIMessages[0]?.role === 'system') {
+      this.openAIMessages[0].content = getSystemPrompt(this.mode);
+    }
   }
 
   private onModelChangeCallback?: (newModel: string, newProvider?: string) => void;
@@ -460,6 +470,9 @@ export class IUBAgent {
         merged.push({ role: item.role, parts: [...item.parts] });
       }
     }
+    while (merged.length > 0 && merged[0].role !== 'user') {
+      merged.shift();
+    }
     this.geminiContents = merged;
   }
 
@@ -540,7 +553,12 @@ export class IUBAgent {
    * Intelligently cascade to the next available model when token quota, auth error, or rate limit is reached.
    * Cycles cleanly across providers without looping back into dead providers or persisting broken models.
    */
-  public async cascadeModel(currentModel: string, reason: string): Promise<string | null> {
+  public async cascadeModel(
+    currentModel: string,
+    reason: string,
+    signal?: AbortSignal
+  ): Promise<string | null> {
+    if (signal?.aborted) return null;
     this.cascadeStepsCount++;
     this.attemptedModelsInCascade.add(currentModel);
     if (this.config.provider === 'gemini') {
@@ -694,7 +712,7 @@ export class IUBAgent {
     }
 
     // Active Model Explorer: dynamically scan remaining live free endpoints before giving up
-    const explored = await exploreAndSelectFreeModel(this.config, this.attemptedModelsInCascade);
+    const explored = await exploreAndSelectFreeModel(this.config, this.attemptedModelsInCascade, false, false);
     if (explored) {
       this.attemptedModelsInCascade.add(explored.id);
       this.initClients();
@@ -715,15 +733,17 @@ export class IUBAgent {
       const cooldownSec = 10;
       renderRollingRateLimitNotice(currentModel, cooldownSec, 'All free models in rolling rate limit');
       for (let rem = cooldownSec; rem > 0; rem--) {
+        if (signal?.aborted) return null;
         const msg = `Free rate limits active • Auto-cooling down (${rem}s) [Never-Stop Mode]... (Esc to cancel)`;
         updateFixedBottomStatus(msg, { mode: this.mode, model: this.config.model });
         await new Promise((r) => setTimeout(r, 1000));
       }
+      if (signal?.aborted) return null;
       // Reset attempted models to allow fresh rolling RPM attempts
       this.attemptedModelsInCascade.clear();
       this.deadProvidersInTurn.clear();
 
-      const recovered = await exploreAndSelectFreeModel(this.config, new Set(), true);
+      const recovered = await exploreAndSelectFreeModel(this.config, new Set(), true, false);
       if (recovered) {
         this.initClients();
         if (recovered.provider === 'gemini') {
@@ -801,10 +821,15 @@ export class IUBAgent {
 
     if (this.openAIMessages.length > 5) {
       const systemMsg = this.openAIMessages[0];
-      const recent = this.openAIMessages.slice(-4);
+      let sliceStart = Math.max(1, this.openAIMessages.length - 4);
+      // Never start recent slice on an orphaned 'tool' response without its preceding assistant tool_calls
+      while (sliceStart < this.openAIMessages.length && this.openAIMessages[sliceStart].role === 'tool') {
+        sliceStart++;
+      }
+      const recent = this.openAIMessages.slice(sliceStart);
       const intermediateUserQueries: string[] = [];
 
-      for (let i = 1; i < this.openAIMessages.length - 4; i++) {
+      for (let i = 1; i < sliceStart; i++) {
         const msg = this.openAIMessages[i];
         if (msg.role === 'user' && typeof msg.content === 'string') {
           intermediateUserQueries.push(msg.content.slice(0, 100));
@@ -820,7 +845,14 @@ export class IUBAgent {
     }
 
     if (this.geminiContents.length > 4) {
-      this.geminiContents = this.geminiContents.slice(-4);
+      let trimmed = this.geminiContents.slice(-4);
+      while (
+        trimmed.length > 0 &&
+        (trimmed[0].role !== 'user' || trimmed[0].parts?.some((p: any) => p.functionResponse))
+      ) {
+        trimmed.shift();
+      }
+      this.geminiContents = trimmed;
     }
 
     const turnsAfter = this.openAIMessages.length + this.geminiContents.length;
@@ -854,18 +886,90 @@ export class IUBAgent {
     };
   }
 
+  private getRequestTimeoutMs(): number {
+    const url = (this.config.baseURL || '').toLowerCase();
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+      return 120000;
+    }
+    return 60000;
+  }
+
+  private async raceWithTimeoutAndAbort<T>(
+    operation: Promise<T>,
+    timeoutMessage: string,
+    signal?: AbortSignal
+  ): Promise<T> {
+    if (signal?.aborted) {
+      throw new Error('ABORTED_BY_USER');
+    }
+
+    let timeoutId: NodeJS.Timeout | undefined;
+    let onAbort: (() => void) | undefined;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), this.getRequestTimeoutMs());
+    });
+
+    const abortPromise = new Promise<never>((_, reject) => {
+      if (signal) {
+        onAbort = () => reject(new Error('ABORTED_BY_USER'));
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    });
+
+    try {
+      return await Promise.race([operation, timeoutPromise, abortPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (signal && onAbort) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    }
+  }
+
+  /**
+   * Ensure message history has no dangling tool_calls or unresponded user turns before starting a new turn.
+   */
+  private sanitizeDanglingHistory(): void {
+    // OpenAI: ensure any assistant message with tool_calls has matching tool responses
+    const lastOpenAI = this.openAIMessages[this.openAIMessages.length - 1] as any;
+    if (lastOpenAI && lastOpenAI.role === 'assistant' && Array.isArray(lastOpenAI.tool_calls) && lastOpenAI.tool_calls.length > 0) {
+      for (const tc of lastOpenAI.tool_calls) {
+        if (tc?.id) {
+          this.openAIMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: 'Action cancelled before completion.',
+          });
+        }
+      }
+    }
+
+    // Gemini: ensure alternating user/model turns if a previous user turn was aborted before model replied
+    const lastGemini = this.geminiContents[this.geminiContents.length - 1];
+    if (lastGemini && lastGemini.role === 'user') {
+      this.geminiContents.push({
+        role: 'model',
+        parts: [{ text: '[Previous request interrupted by user before completion.]' }],
+      });
+    }
+  }
+
   /**
    * Main chat turn loop with automatic tool execution and cross-provider failover.
    */
   public async chat(
     userInput: string,
-    options?: { signal?: AbortSignal; images?: ImagePayload[] }
+    options?: { signal?: AbortSignal; images?: ImagePayload[]; isCascadeRetry?: boolean }
   ): Promise<string> {
     if (options?.signal?.aborted) {
       return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
     }
 
     this.resetCascadeAttempts();
+    if (!options?.isCascadeRetry) {
+      this.sanitizeDanglingHistory();
+    }
     const modeDirective =
       this.mode === 'build'
         ? `[SYSTEM STATUS: ACTIVE MODE = BUILD MODE. All coding tools (write_file, edit_file, run_command) are FULLY UNLOCKED AND ACTIVE. You MUST NOT claim you are in PLAN mode or ask the user to type /build. You are ALREADY in BUILD mode. Immediately call your tools to implement, create, or edit code.]`
@@ -883,12 +987,17 @@ export class IUBAgent {
       if (options?.signal?.aborted) {
         return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
       }
-      const nextModel = await this.cascadeModel(this.config.model, 'Provider failure auto-recovery');
+      const nextModel = await this.cascadeModel(
+        this.config.model,
+        'Provider failure auto-recovery',
+        options?.signal
+      );
       if (nextModel) {
+        const retryOpts = { ...options, isCascadeRetry: true };
         if (this.config.provider === 'gemini') {
-          return await this.chatGemini(englishEnforcedInput, options);
+          return await this.chatGemini(englishEnforcedInput, retryOpts);
         } else {
-          return await this.chatOpenAI(englishEnforcedInput, options);
+          return await this.chatOpenAI(englishEnforcedInput, retryOpts);
         }
       }
       return chalk.yellow('\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.');
@@ -930,7 +1039,7 @@ export class IUBAgent {
    */
   private async chatGemini(
     userInput: string,
-    options?: { signal?: AbortSignal; images?: ImagePayload[] }
+    options?: { signal?: AbortSignal; images?: ImagePayload[]; isCascadeRetry?: boolean }
   ): Promise<string> {
     if (options?.signal?.aborted) {
       return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
@@ -940,9 +1049,8 @@ export class IUBAgent {
       throw new Error('Gemini client is not initialized.');
     }
 
-    // Add user message to Gemini conversation contents only if not already added
-    const lastContent = this.geminiContents[this.geminiContents.length - 1];
-    if (!lastContent || lastContent.role !== 'user') {
+    // Add user message only on initial entry for this turn (not on cascade retries)
+    if (!options?.isCascadeRetry) {
       const parts: any[] = [{ text: userInput }];
       if (options?.images && options.images.length > 0) {
         for (const img of options.images) {
@@ -954,16 +1062,22 @@ export class IUBAgent {
           });
         }
       }
-      this.geminiContents.push({
-        role: 'user',
-        parts,
-      });
+      const lastContent = this.geminiContents[this.geminiContents.length - 1];
+      if (lastContent && lastContent.role === 'user') {
+        lastContent.parts.push(...parts);
+      } else {
+        this.geminiContents.push({
+          role: 'user',
+          parts,
+        });
+      }
     }
 
     const maxTurns = 40;
     let turnCount = 0;
     let toolsExecutedInChat = 0;
     let nudgedBuildExecution = false;
+    let emptyNudges = 0;
 
     while (turnCount < maxTurns) {
       if (options?.signal?.aborted) {
@@ -1009,21 +1123,8 @@ export class IUBAgent {
           }
 
           attempts++;
-          let timeoutId: NodeJS.Timeout | undefined;
           try {
-            const abortPromise = new Promise<never>((_, reject) => {
-              if (options?.signal?.aborted) {
-                reject(new Error('ABORTED_BY_USER'));
-                return;
-              }
-              options?.signal?.addEventListener('abort', () => reject(new Error('ABORTED_BY_USER')), { once: true });
-            });
-
-            const timeoutPromise = new Promise<never>((_, reject) => {
-              timeoutId = setTimeout(() => reject(new Error('Gemini API request timed out (18s)')), 18000);
-            });
-
-            response = await Promise.race([
+            response = await this.raceWithTimeoutAndAbort(
               this.geminiClient.models.generateContent({
                 model: candidateModel,
                 contents: this.geminiContents,
@@ -1032,10 +1133,9 @@ export class IUBAgent {
                   tools: (this.mode === 'plan' ? PLAN_GEMINI_TOOLS : BUILD_GEMINI_TOOLS) as any,
                 },
               }),
-              timeoutPromise,
-              abortPromise,
-            ]);
-            if (timeoutId) clearTimeout(timeoutId);
+              `Gemini API request timed out (${Math.round(this.getRequestTimeoutMs() / 1000)}s)`,
+              options?.signal
+            );
 
             usedGeminiModel = candidateModel;
             if (candidateModel !== this.config.model) {
@@ -1049,7 +1149,6 @@ export class IUBAgent {
             lastError = null;
             break;
           } catch (err: any) {
-            if (timeoutId) clearTimeout(timeoutId);
             if (options?.signal?.aborted || err?.message === 'ABORTED_BY_USER') {
               spinner.stop();
               return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
@@ -1109,16 +1208,18 @@ export class IUBAgent {
 
       if (!response) {
         const errMsg = lastError ? (lastError?.message || String(lastError)) : 'All Gemini candidates exhausted';
+        const retryOpts = { ...options, isCascadeRetry: true };
         if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('403') || errMsg.includes('401')) {
           const nextModel = await this.cascadeModel(
             this.config.model,
-            'Gemini auth error (401/403), cascading to OpenRouter/Custom'
+            'Gemini auth error (401/403), cascading to OpenRouter/Custom',
+            options?.signal
           );
           if (nextModel) {
             if (this.config.provider === 'gemini') {
-              return await this.chatGemini(userInput, options);
+              return await this.chatGemini(userInput, retryOpts);
             } else {
-              return await this.chatOpenAI(userInput, options);
+              return await this.chatOpenAI(userInput, retryOpts);
             }
           }
           return chalk.red(
@@ -1130,13 +1231,14 @@ export class IUBAgent {
             usedGeminiModel,
             errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')
               ? 'Gemini Rate Limit / Token Quota Exceeded (429)'
-              : 'Gemini Server High Demand / Provider Error'
+              : 'Gemini Server High Demand / Provider Error',
+            options?.signal
           );
           if (nextModel) {
             if (this.config.provider === 'gemini') {
-              return await this.chatGemini(userInput, options);
+              return await this.chatGemini(userInput, retryOpts);
             } else {
-              return await this.chatOpenAI(userInput, options);
+              return await this.chatOpenAI(userInput, retryOpts);
             }
           }
           return chalk.yellow(
@@ -1157,6 +1259,10 @@ export class IUBAgent {
 
       // Check if candidate hit MALFORMED_FUNCTION_CALL
       if (candidate?.finishReason === 'MALFORMED_FUNCTION_CALL' && functionCalls.length === 0) {
+        emptyNudges++;
+        if (emptyNudges > 2) {
+          return 'Model returned repeated malformed tool calls. Please try rephrasing or switching models with /model.';
+        }
         this.geminiContents.push({
           role: 'user',
           parts: [
@@ -1181,12 +1287,17 @@ export class IUBAgent {
 
       // If no function calls, check BUILD mode autonomous execution guard or return final answer
       if (!functionCalls || functionCalls.length === 0) {
-        if (!directText && turnCount < maxTurns) {
+        if (!directText && turnCount < maxTurns && emptyNudges < 2) {
+          emptyNudges++;
           this.geminiContents.push({
             role: 'user',
             parts: [{ text: 'Please continue and provide your response or call the needed tool.' }],
           });
           continue;
+        }
+        if (!directText) {
+          const reason = candidate?.finishReason ? ` (${candidate.finishReason})` : '';
+          return `Model returned an empty response${reason}.`;
         }
         if (this.shouldNudgePassiveBuildReply(userInput, directText, toolsExecutedInChat, nudgedBuildExecution) && turnCount < maxTurns) {
           nudgedBuildExecution = true;
@@ -1249,7 +1360,7 @@ export class IUBAgent {
    */
   private async chatOpenAI(
     userInput: string,
-    options?: { signal?: AbortSignal; images?: ImagePayload[] }
+    options?: { signal?: AbortSignal; images?: ImagePayload[]; isCascadeRetry?: boolean }
   ): Promise<string> {
     if (options?.signal?.aborted) {
       return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
@@ -1258,19 +1369,20 @@ export class IUBAgent {
     if (!this.openAIClient || !this.config.apiKey) {
       const nextModel = await this.cascadeModel(
         this.config.model,
-        `Auth error / Missing API key for ${this.config.provider}`
+        `Auth error / Missing API key for ${this.config.provider}`,
+        options?.signal
       );
       if (nextModel) {
+        const retryOpts = { ...options, isCascadeRetry: true };
         if ((this.config.provider as string) === 'gemini') {
-          return await this.chatGemini(userInput, options);
+          return await this.chatGemini(userInput, retryOpts);
         }
       } else {
         throw new Error('OpenAI client is not initialized.');
       }
     }
 
-    const lastMsg = this.openAIMessages[this.openAIMessages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'user') {
+    if (!options?.isCascadeRetry) {
       if (options?.images && options.images.length > 0) {
         const contentParts: any[] = [{ type: 'text', text: userInput }];
         for (const img of options.images) {
@@ -1297,6 +1409,7 @@ export class IUBAgent {
     let turnCount = 0;
     let toolsExecutedInChat = 0;
     let nudgedBuildExecution = false;
+    let emptyNudges = 0;
 
     while (turnCount < maxTurns) {
       if (options?.signal?.aborted) {
@@ -1331,21 +1444,9 @@ export class IUBAgent {
           break;
         }
 
-        let timeoutId: NodeJS.Timeout | undefined;
+        const timeoutMs = this.getRequestTimeoutMs();
         try {
-          const abortPromise = new Promise<never>((_, reject) => {
-            if (options?.signal?.aborted) {
-              reject(new Error('ABORTED_BY_USER'));
-              return;
-            }
-            options?.signal?.addEventListener('abort', () => reject(new Error('ABORTED_BY_USER')), { once: true });
-          });
-
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error('Provider API request timed out (18s)')), 18000);
-          });
-
-          completion = await Promise.race([
+          completion = await this.raceWithTimeoutAndAbort(
             this.openAIClient.chat.completions.create(
               {
                 model: this.config.model,
@@ -1355,17 +1456,15 @@ export class IUBAgent {
               },
               {
                 signal: options?.signal,
-                timeout: 18000,
+                timeout: timeoutMs,
               }
             ),
-            timeoutPromise,
-            abortPromise,
-          ]);
-          if (timeoutId) clearTimeout(timeoutId);
+            `Provider API request timed out (${Math.round(timeoutMs / 1000)}s)`,
+            options?.signal
+          );
           this.persistVerifiedActiveModel();
           break;
         } catch (err: any) {
-          if (timeoutId) clearTimeout(timeoutId);
           if (options?.signal?.aborted || err?.message === 'ABORTED_BY_USER') {
             spinner.stop();
             return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
@@ -1464,10 +1563,10 @@ export class IUBAgent {
 
           cascadeAttempts++;
           spinner.stop();
-          const nextModel = await this.cascadeModel(this.config.model, cascadeReason);
+          const nextModel = await this.cascadeModel(this.config.model, cascadeReason, options?.signal);
           if (nextModel) {
             if ((this.config.provider as string) === 'gemini') {
-              return await this.chatGemini(userInput, options);
+              return await this.chatGemini(userInput, { ...options, isCascadeRetry: true });
             }
             spinner.text = chalk.cyan(`IUB CLI continuing with [${nextModel}]...`);
             spinner.start();
@@ -1494,12 +1593,13 @@ export class IUBAgent {
       }
 
       if (!completion) {
-        const nextModel = await this.cascadeModel(this.config.model, 'Cascade auto-recovery');
+        const nextModel = await this.cascadeModel(this.config.model, 'Cascade auto-recovery', options?.signal);
         if (nextModel) {
+          const retryOpts = { ...options, isCascadeRetry: true };
           if (this.config.provider === 'gemini') {
-            return await this.chatGemini(userInput, options);
+            return await this.chatGemini(userInput, retryOpts);
           } else {
-            return await this.chatOpenAI(userInput, options);
+            return await this.chatOpenAI(userInput, retryOpts);
           }
         }
         return chalk.yellow(
@@ -1509,10 +1609,14 @@ export class IUBAgent {
 
       const choice = completion.choices?.[0];
       if (!choice || !choice.message) {
-        const nextModel = await this.cascadeModel(this.config.model, 'Empty choices returned from model');
+        const nextModel = await this.cascadeModel(
+          this.config.model,
+          'Empty choices returned from model',
+          options?.signal
+        );
         if (nextModel) {
           if ((this.config.provider as string) === 'gemini') {
-            return await this.chatGemini(userInput, options);
+            return await this.chatGemini(userInput, { ...options, isCascadeRetry: true });
           }
           continue;
         }
@@ -1537,8 +1641,9 @@ export class IUBAgent {
       if (!message.tool_calls || message.tool_calls.length === 0) {
         const rawText = message.content?.trim() || '';
         const reasoningText = ((message as any).reasoning || '').trim();
-        if (!rawText && reasoningText && turnCount < maxTurns) {
+        if (!rawText && reasoningText && turnCount < maxTurns && emptyNudges < 2) {
           // Some free reasoning models exhaust tokens thinking before emitting final text/tool_calls
+          emptyNudges++;
           this.openAIMessages.push({
             role: 'user',
             content: 'Please proceed directly with your final answer or call the required tool now.',
@@ -1564,14 +1669,24 @@ export class IUBAgent {
           return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
-        if (toolCall.type !== 'function') continue;
+        const fnObj = (toolCall as any).function;
+        if (!fnObj || typeof fnObj.name !== 'string') {
+          if (toolCall.id) {
+            this.openAIMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: 'Error: Unsupported or malformed tool call payload.',
+            });
+          }
+          continue;
+        }
 
-        const fnName = toolCall.function.name;
+        const fnName = fnObj.name;
         let fnArgs: Record<string, any> | null = null;
         let parseError: string | null = null;
 
         try {
-          fnArgs = JSON.parse(toolCall.function.arguments || '{}');
+          fnArgs = JSON.parse(fnObj.arguments || '{}');
         } catch (e: any) {
           parseError = e?.message || 'Invalid JSON';
         }

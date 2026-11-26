@@ -126,7 +126,8 @@ async function probeCandidate(candidate: FreeModelCandidate): Promise<boolean> {
 export async function exploreAndSelectFreeModel(
   config: IUBCLIConfig,
   excludedModels: Set<string> = new Set(),
-  silent: boolean = false
+  silent: boolean = false,
+  persist: boolean = true
 ): Promise<FreeModelCandidate | null> {
   if (!silent) {
     process.stdout.write(
@@ -310,7 +311,10 @@ export async function exploreAndSelectFreeModel(
       } else {
         delete (config as any).baseURL;
       }
-      saveConfig(config);
+
+      if (persist) {
+        saveConfig(config);
+      }
 
       if (!silent) {
         renderModelExplorationNotice(winner.id, winner.provider, testedCount);

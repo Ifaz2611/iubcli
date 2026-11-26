@@ -2,13 +2,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import { execSync } from 'node:child_process';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import {
+  getAppVersion,
   getConfig,
   promptConfig,
   switchProviderInteractive,
-  updateModel,
   saveConfig,
   hasSavedConfig,
   createZeroKeyConfig,
@@ -16,7 +17,6 @@ import {
   formatProviderLabel,
   isKeylessConfig,
   POLLINATIONS_FREE_API_KEY,
-  PROVIDER_LABELS,
   IUBCLIConfig,
 } from './config.js';
 import { IUBAgent } from './agent.js';
@@ -43,12 +43,10 @@ import {
   expandOpenCodeMentions,
   restoreTerminalViewport,
   updateFixedBottomStatus,
-  activateFixedDock,
   deactivateFixedDock,
   updateDockedModel,
   prepareInteractiveArea,
   interactiveSelect,
-  interactiveInput,
   isInteractivePromptActive,
   isDockedPromptWaiting,
 } from './prompt.js';
@@ -67,7 +65,78 @@ function gracefulExit(code = 0): void {
     process.stdin.pause();
     (process.stdin as any).unref?.();
   } catch {}
-  setTimeout(() => process.exit(code), 80).unref();
+  setTimeout(() => process.exit(code), 40);
+}
+
+async function runDoctorDiagnostics(config: IUBCLIConfig): Promise<void> {
+  const checks: { name: string; status: 'ok' | 'warn' | 'error'; detail: string }[] = [];
+
+  const nodeVer = process.version;
+  const major = parseInt(nodeVer.replace('v', '').split('.')[0], 10);
+  checks.push({
+    name: 'Node.js Runtime',
+    status: major >= 18 ? 'ok' : 'error',
+    detail: `${nodeVer} (Node 18+ required for modern async streams)`,
+  });
+
+  const hasKey = isKeylessConfig(config) || Boolean(config.apiKey && config.apiKey.trim().length > 5);
+  checks.push({
+    name: 'AI Provider & Key',
+    status: hasKey ? 'ok' : 'error',
+    detail: `${formatProviderLabel(config)} with model "${config.model}" (${
+      isKeylessConfig(config) ? 'Zero-Key Active' : hasKey ? 'Configured' : 'Missing API Key'
+    })`,
+  });
+
+  try {
+    const testFile = path.resolve(process.cwd(), '.iubcli_check.tmp');
+    fs.writeFileSync(testFile, 'ok', 'utf8');
+    fs.unlinkSync(testFile);
+    checks.push({
+      name: 'Workspace Read/Write',
+      status: 'ok',
+      detail: `${process.cwd()} (Read/Write verified)`,
+    });
+  } catch (e: any) {
+    checks.push({
+      name: 'Workspace Read/Write',
+      status: 'error',
+      detail: `Cannot write to ${process.cwd()}: ${e.message}`,
+    });
+  }
+
+  try {
+    const gitVer = execSync('git --version', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    checks.push({
+      name: 'Git CLI',
+      status: 'ok',
+      detail: gitVer || 'Available',
+    });
+  } catch {
+    checks.push({
+      name: 'Git CLI',
+      status: 'warn',
+      detail: 'git not found in PATH (/git command disabled)',
+    });
+  }
+
+  const ollamaModels = await detectLocalOllamaModels(400);
+  checks.push({
+    name: 'Local Ollama',
+    status: ollamaModels.length > 0 ? 'ok' : 'warn',
+    detail:
+      ollamaModels.length > 0
+        ? `Running on localhost:11434 (${ollamaModels.length} model(s): ${ollamaModels.slice(0, 3).join(', ')})`
+        : 'Not detected on localhost:11434 (optional offline fallback)',
+  });
+
+  checks.push({
+    name: 'OS & Execution Shell',
+    status: 'ok',
+    detail: `${process.platform} (${process.arch}) with non-interactive child process safety`,
+  });
+
+  renderDoctorReport(checks);
 }
 
 process.on('exit', () => {
@@ -156,7 +225,7 @@ const program = new Command();
 program
   .name('iubcli')
   .description('IUB CLI — Next-Gen Autonomous BYOK terminal coding agent that speaks Bangla, Banglish & English.')
-  .version('4.2.9', '-v, --version', 'Output the current version')
+  .version(getAppVersion(), '-v, --version', 'Output the current version')
   .option('-m, --model <model>', 'Override model for this session')
   .option('-M, --mode <mode>', 'Execution mode: "build" (default) or "plan"', 'build')
   .option('-p, --prompt <prompt>', 'Run a single prompt and exit')
@@ -166,6 +235,22 @@ program
   .option('--mesh-token <token>', 'Shared authentication token for mesh')
   .option('--no-mesh', 'Disable cross-instance mesh networking')
   .action(async (options) => {
+    const rawMode = String(options.mode || 'build').toLowerCase().trim();
+    if (rawMode !== 'build' && rawMode !== 'plan') {
+      console.error(chalk.red(`\nInvalid --mode "${options.mode}". Expected "build" or "plan".\n`));
+      process.exit(1);
+    }
+
+    let parsedMeshPort: number | undefined;
+    if (options.meshPort !== undefined) {
+      const p = Number(options.meshPort);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) {
+        console.error(chalk.red(`\nInvalid --mesh-port "${options.meshPort}". Expected an integer between 1 and 65535.\n`));
+        process.exit(1);
+      }
+      parsedMeshPort = p;
+    }
+
     if (options.yes) {
       safetySession.autoApproveAll = true;
     }
@@ -206,15 +291,15 @@ program
       config.model = options.model;
     }
 
-    const initialMode: 'build' | 'plan' = options.mode === 'plan' ? 'plan' : 'build';
+    const initialMode: 'build' | 'plan' = rawMode === 'plan' ? 'plan' : 'build';
     const agent = new IUBAgent(config, initialMode);
 
     // Initialize Cross-Instance Mesh Node
     let meshNode: MeshNode | null = null;
-    if (!options.noMesh) {
+    if (options.mesh !== false) {
       meshNode = new MeshNode({
         role: options.role,
-        port: options.meshPort ? parseInt(options.meshPort, 10) : undefined,
+        port: parsedMeshPort,
         token: options.meshToken,
         mode: initialMode,
         model: config.model,
@@ -405,8 +490,9 @@ program
         const found = await exploreAndSelectFreeModel(config);
         if (found) {
           agent.updateConfig(config);
+          meshNode?.updateState({ model: config.model });
           updateDockedModel(
-            PROVIDER_LABELS[config.provider] || config.provider,
+            formatProviderLabel(config),
             config.model,
             agent.getMode()
           );
@@ -490,7 +576,7 @@ program
       // Mode Switching (OpenCode Style)
       if (lowerCmd === '/mode') {
         prepareInteractiveArea(
-          PROVIDER_LABELS[config.provider] || config.provider,
+          formatProviderLabel(config),
           config.model,
           agent.getMode()
         );
@@ -514,6 +600,7 @@ program
         if (modeChoice) {
           agent.setMode(modeChoice);
           meshNode?.updateState({ mode: modeChoice });
+          updateDockedModel(formatProviderLabel(config), config.model, modeChoice);
           console.log(chalk.green(`\nAgent mode switched to: ${modeChoice === 'build' ? 'BUILD Mode' : 'PLAN Mode'}\n`));
         }
         continue;
@@ -605,53 +692,7 @@ program
       }
 
       if (lowerCmd === '/doctor' || lowerCmd === '/check') {
-        const checks: { name: string; status: 'ok' | 'warn' | 'error'; detail: string }[] = [];
-
-        // 1. Node runtime
-        const nodeVer = process.version;
-        const major = parseInt(nodeVer.replace('v', '').split('.')[0], 10);
-        checks.push({
-          name: 'Node.js Runtime',
-          status: major >= 18 ? 'ok' : 'error',
-          detail: `${nodeVer} (Node 18+ required for modern async streams)`,
-        });
-
-        // 2. Active Provider & Model
-        const hasKey = isKeylessConfig(config) || Boolean(config.apiKey && config.apiKey.trim().length > 5);
-        checks.push({
-          name: 'AI Provider & Key',
-          status: hasKey ? 'ok' : 'error',
-          detail: `${formatProviderLabel(config)} with model "${config.model}" (${
-            isKeylessConfig(config) ? 'Zero-Key Active' : hasKey ? 'Configured' : 'Missing API Key'
-          })`,
-        });
-
-        // 3. Workspace access
-        try {
-          const testFile = path.resolve(process.cwd(), '.iubcli_check.tmp');
-          fs.writeFileSync(testFile, 'ok', 'utf8');
-          fs.unlinkSync(testFile);
-          checks.push({
-            name: 'Workspace Read/Write',
-            status: 'ok',
-            detail: `${process.cwd()} (Read/Write verified)`,
-          });
-        } catch (e: any) {
-          checks.push({
-            name: 'Workspace Read/Write',
-            status: 'error',
-            detail: `Cannot write to ${process.cwd()}: ${e.message}`,
-          });
-        }
-
-        // 4. Operating System & Shell
-        checks.push({
-          name: 'OS & Execution Shell',
-          status: 'ok',
-          detail: `${process.platform} (${process.arch}) with non-interactive child process safety`,
-        });
-
-        renderDoctorReport(checks);
+        await runDoctorDiagnostics(config);
         continue;
       }
 
@@ -687,8 +728,21 @@ program
         continue;
       }
 
-      if (lowerCmd === '/tree') {
-        renderDirectoryTree();
+      if (lowerCmd === '/tree' || lowerCmd.startsWith('/tree ')) {
+        const treeArgs = trimmed.slice(5).trim();
+        if (!treeArgs) {
+          renderDirectoryTree();
+        } else {
+          const parts = treeArgs.split(/\s+/);
+          const maybeDepth = Number(parts[0]);
+          if (parts.length === 1 && Number.isInteger(maybeDepth) && maybeDepth > 0 && maybeDepth <= 6) {
+            renderDirectoryTree('.', maybeDepth);
+          } else {
+            const targetDir = parts[0];
+            const depth = parts[1] && Number.isInteger(Number(parts[1])) ? Math.min(6, Math.max(1, Number(parts[1]))) : 2;
+            renderDirectoryTree(targetDir, depth);
+          }
+        }
         continue;
       }
 
@@ -718,7 +772,7 @@ program
         const mem = agent.getHistoryStats();
         console.log('\n' + chalk.bold.hex('#00A3FF')('Active Session Status (OpenCode Style)'));
         console.log(chalk.dim('─'.repeat(60)));
-        console.log(`  ${chalk.gray('Provider:')}       ${chalk.bold(PROVIDER_LABELS[config.provider])}`);
+        console.log(`  ${chalk.gray('Provider:')}       ${chalk.bold(formatProviderLabel(config))}`);
         console.log(`  ${chalk.gray('Active Model:')}   ${chalk.cyan.bold(config.model)}`);
         console.log(`  ${chalk.gray('Active Mode:')}    ${agent.getMode() === 'build' ? chalk.green.bold('BUILD') : chalk.yellow.bold('PLAN')}`);
         console.log(`  ${chalk.gray('Working Dir:')}    ${chalk.white(process.cwd())}`);
@@ -778,7 +832,7 @@ program
         continue;
       }
 
-      if (lowerCmd.startsWith('/send ') || lowerCmd.startsWith('/msg ')) {
+      if (lowerCmd === '/send' || lowerCmd === '/msg' || lowerCmd.startsWith('/send ') || lowerCmd.startsWith('/msg ')) {
         const parts = trimmed.split(/\s+/);
         if (parts.length < 3) {
           console.log(chalk.yellow('\nUsage: /send <role|nodeId> <message>\nExample: /send backend Please implement /api/users route.\n'));
@@ -802,7 +856,7 @@ program
         continue;
       }
 
-      if (lowerCmd === '/provider') {
+      if (lowerCmd === '/provider' || lowerCmd === '/providers') {
         prepareInteractiveArea(
           formatProviderLabel(config),
           config.model,
@@ -812,6 +866,8 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
+          meshNode?.updateState({ model: config.model });
+          updateDockedModel(formatProviderLabel(config), config.model, agent.getMode());
           console.log(chalk.green(`\nProvider updated to: ${formatProviderLabel(config)} (${config.model})\n`));
         }
         continue;
@@ -824,9 +880,13 @@ program
           agent.getMode()
         );
         const newConfig = await promptConfig(false, config);
-        config = newConfig;
-        agent.updateConfig(newConfig);
-        console.log(chalk.green(`\nConfiguration updated: ${formatProviderLabel(config)} (${config.model})\n`));
+        if (newConfig) {
+          config = newConfig;
+          agent.updateConfig(newConfig);
+          meshNode?.updateState({ model: config.model });
+          updateDockedModel(formatProviderLabel(config), config.model, agent.getMode());
+          console.log(chalk.green(`\nConfiguration updated: ${formatProviderLabel(config)} (${config.model})\n`));
+        }
         continue;
       }
 
@@ -848,6 +908,8 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
+          meshNode?.updateState({ model: config.model });
+          updateDockedModel(formatProviderLabel(config), config.model, agent.getMode());
           console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
         }
         continue;
@@ -878,11 +940,13 @@ program
             if (directConfig) {
               config = directConfig;
               agent.updateConfig(directConfig);
+              meshNode?.updateState({ model: config.model });
               updateDockedModel(
                 formatProviderLabel(config),
                 config.model,
                 agent.getMode()
               );
+              console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
             }
             continue;
           } else if (query.includes('/') || query.startsWith('gemini-') || query.startsWith('gemma-') || query.startsWith('gpt-')) {
@@ -908,11 +972,13 @@ program
             if (inferredConfig) {
               config = inferredConfig;
               agent.updateConfig(inferredConfig);
+              meshNode?.updateState({ model: config.model });
               updateDockedModel(
                 formatProviderLabel(config),
                 config.model,
                 agent.getMode()
               );
+              console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
             }
             continue;
           }
@@ -922,6 +988,8 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
+          meshNode?.updateState({ model: config.model });
+          updateDockedModel(formatProviderLabel(config), config.model, agent.getMode());
           console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
         }
         continue;
@@ -932,12 +1000,21 @@ program
       let isPriorityTask = false;
       let taskPrompt = trimmed;
 
-      if (trimmed.startsWith('/task ') || trimmed.startsWith('/urgent ') || trimmed.startsWith('/priority ')) {
+      if (lowerCmd === '/task' || lowerCmd === '/urgent' || lowerCmd === '/priority') {
+        console.log(chalk.yellow('\nUsage: /task <description>\nExample: /task Fix login form validation\n'));
+        continue;
+      }
+
+      if (lowerCmd.startsWith('/task ') || lowerCmd.startsWith('/urgent ') || lowerCmd.startsWith('/priority ')) {
         isPriorityTask = true;
         taskPrompt = trimmed.replace(/^\/(task|urgent|priority)\s+/i, '').trim();
       } else if (/^(urgent|priority|task):\s*/i.test(trimmed)) {
         isPriorityTask = true;
         taskPrompt = trimmed.replace(/^(urgent|priority|task):\s*/i, '').trim();
+      } else if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !/^\/[^\s]+\//.test(trimmed)) {
+        const cmdWord = trimmed.split(/\s+/)[0];
+        console.log(chalk.yellow(`\nUnknown command "${cmdWord}". Type ${chalk.cyan('/help')} to see all available commands.\n`));
+        continue;
       }
 
       if (isPriorityTask) {
@@ -1023,10 +1100,11 @@ program
   .alias('model')
   .description('OpenCode-style AI agent & model selector (Free, Flagship, Gemini, Local)')
   .action(async () => {
-    let config = getConfig();
+    let config: IUBCLIConfig | null | undefined = getConfig();
     if (!config) {
       config = await promptConfig(true);
     }
+    if (!config) return;
     await selectAgentModelInteractive(config, 'build');
   });
 
@@ -1066,55 +1144,13 @@ program
   .command('doctor')
   .alias('check')
   .description('Run automated diagnostic check of Node.js runtime, workspace, shell, and provider')
-  .action(() => {
-    let config = getConfig() || {
+  .action(async () => {
+    const config = getConfig() || {
       provider: 'gemini',
       apiKey: '',
       model: 'gemini-3.5-flash-lite',
     };
-
-    const checks: { name: string; status: 'ok' | 'warn' | 'error'; detail: string }[] = [];
-    const nodeVer = process.version;
-    const major = parseInt(nodeVer.replace('v', '').split('.')[0], 10);
-    checks.push({
-      name: 'Node.js Runtime',
-      status: major >= 18 ? 'ok' : 'error',
-      detail: `${nodeVer} (Node 18+ required for modern async streams)`,
-    });
-
-    const hasKey = isKeylessConfig(config) || Boolean(config.apiKey && config.apiKey.trim().length > 5);
-    checks.push({
-      name: 'AI Provider & Key',
-      status: hasKey ? 'ok' : 'error',
-      detail: `${formatProviderLabel(config)} with model "${config.model}" (${
-        isKeylessConfig(config) ? 'Zero-Key Active' : hasKey ? 'Configured' : 'Missing API Key'
-      })`,
-    });
-
-    try {
-      const testFile = path.resolve(process.cwd(), '.iubcli_check.tmp');
-      fs.writeFileSync(testFile, 'ok', 'utf8');
-      fs.unlinkSync(testFile);
-      checks.push({
-        name: 'Workspace Read/Write',
-        status: 'ok',
-        detail: `${process.cwd()} (Read/Write verified)`,
-      });
-    } catch (e: any) {
-      checks.push({
-        name: 'Workspace Read/Write',
-        status: 'error',
-        detail: `Cannot write to ${process.cwd()}: ${e.message}`,
-      });
-    }
-
-    checks.push({
-      name: 'OS & Execution Shell',
-      status: 'ok',
-      detail: `${process.platform} (${process.arch}) with non-interactive child process safety`,
-    });
-
-    renderDoctorReport(checks);
+    await runDoctorDiagnostics(config);
   });
 
 // Explicit stats subcommand
@@ -1123,7 +1159,7 @@ program
   .alias('cost')
   .description('Display token limits, pricing, and live cost calculation')
   .action(() => {
-    let config = getConfig() || {
+    const config = getConfig() || {
       provider: 'gemini',
       apiKey: '',
       model: 'gemini-3.5-flash-lite',
@@ -1141,79 +1177,6 @@ program
       filesTouched: 0,
     });
   });
-
-/**
- * Handle dynamic model switching command (/model)
- */
-async function handleSwitchModel(config: IUBCLIConfig, agent: IUBAgent): Promise<void> {
-  let selectedModel = config.model;
-
-  if (config.provider === 'gemini') {
-    const choice = await interactiveSelect({
-      message: 'Switch Gemini Model:',
-      initialValue: config.model,
-      options: [
-        { value: 'gemini-3.5-flash-lite', label: 'gemini-3.5-flash-lite (Verified Active Free, 1M Tokens, 1,500 RPD)' },
-        { value: 'gemini-3.1-flash-lite', label: 'gemini-3.1-flash-lite (Ultra-Fast Free Tier)' },
-        { value: 'gemma-4-31b-it', label: 'gemma-4-31b-it (Gemma 4 31B Tool-Capable Free)' },
-        { value: 'gemma-4-26b-a4b-it', label: 'gemma-4-26b-a4b-it (Gemma 4 26B MoE Free)' },
-        { value: 'gemini-3.5-flash', label: 'gemini-3.5-flash (Flagship Flash Free)' },
-        { value: 'gemini-3.8-flash', label: 'gemini-3.8-flash (Next-Gen 2M Context)' },
-        { value: 'custom_input', label: 'Enter custom model name...' },
-      ],
-    });
-
-    if (!choice) return;
-
-    if (choice === 'custom_input') {
-      const custom = await interactiveInput({
-        message: 'Enter Gemini model ID:',
-        initialValue: config.model || 'gemini-3.5-flash-lite',
-      });
-      if (!custom) return;
-      selectedModel = custom.trim();
-    } else {
-      selectedModel = choice;
-    }
-  } else if (config.provider === 'openrouter') {
-    const choice = await interactiveSelect({
-      message: 'Switch OpenRouter Model:',
-      initialValue: config.model || 'openrouter/free',
-      options: [
-        { value: 'openrouter/free', label: 'openrouter/free (Recommended - Best Free Model with Tools)' },
-        { value: 'google/gemma-4-31b-it:free', label: 'google/gemma-4-31b-it:free (Free 31B Coding & Chat)' },
-        { value: 'nvidia/nemotron-3.5-lightning:free', label: 'nvidia/nemotron-3.5-lightning:free (Free Fast Model)' },
-        { value: 'inclusionai/ling-3.2-flash:free', label: 'inclusionai/ling-3.2-flash:free (Free Flash Model)' },
-        { value: 'custom_input', label: 'Enter custom OpenRouter model ID...' },
-      ],
-    });
-
-    if (!choice) return;
-
-    if (choice === 'custom_input') {
-      const custom = await interactiveInput({
-        message: 'Enter model ID (e.g. openrouter/free):',
-        initialValue: config.model || 'openrouter/free',
-      });
-      if (!custom) return;
-      selectedModel = custom.trim();
-    } else {
-      selectedModel = choice;
-    }
-  } else {
-    const custom = await interactiveInput({
-      message: 'Enter custom model name:',
-      initialValue: config.model,
-    });
-    if (!custom) return;
-    selectedModel = custom.trim();
-  }
-
-  config.model = selectedModel;
-  updateModel(selectedModel);
-  agent.setModel(selectedModel);
-  console.log(chalk.green(`\nSwitched model to: ${chalk.bold(selectedModel)}\n`));
-}
 
 // Explicit peers subcommand
 program
@@ -1239,6 +1202,7 @@ program
       console.log(chalk.dim('─'.repeat(70)) + '\n');
     }
     node.stop();
+    gracefulExit(0);
   });
 
 program.parse(process.argv);

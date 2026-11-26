@@ -138,7 +138,8 @@ export function renderContentLine(
   lineText: string,
   isFirst: boolean,
   isBuild: boolean,
-  borderColor: (s: string) => string
+  borderColor: (s: string) => string,
+  cursorCol?: number
 ): string {
   const promptArrow = isFirst
     ? isBuild
@@ -152,8 +153,23 @@ export function renderContentLine(
 
   const textCapacity = Math.max(1, width - prefixWidth - suffixWidth);
   let visibleText = lineText;
-  while (stringWidth(visibleText) > textCapacity && visibleText.length > 0) {
-    visibleText = visibleText.slice(1);
+  if (stringWidth(visibleText) > textCapacity) {
+    if (cursorCol !== undefined && cursorCol < lineText.length) {
+      // Keep cursor within the visible slice window
+      let start = 0;
+      while (start < cursorCol && stringWidth(lineText.slice(start, cursorCol)) > textCapacity - 2) {
+        start++;
+      }
+      let end = lineText.length;
+      while (end > cursorCol && stringWidth(lineText.slice(start, end)) > textCapacity) {
+        end--;
+      }
+      visibleText = lineText.slice(start, end);
+    } else {
+      while (stringWidth(visibleText) > textCapacity && visibleText.length > 0) {
+        visibleText = visibleText.slice(1);
+      }
+    }
   }
 
   const textWidth = stringWidth(visibleText);
@@ -200,7 +216,10 @@ function renderStatusLine(
 
 export function restoreTerminalViewport(): void {
   try {
-    process.stdout.write('\x1b[r\x1b[?25h');
+    process.stdout.write('\x1b[r\x1b[?2004l\x1b[?25h');
+    if (process.stdin.isTTY && process.stdin.isRaw) {
+      process.stdin.setRawMode(false);
+    }
   } catch {}
 }
 
@@ -498,10 +517,12 @@ export async function interactiveSelect<T extends string = string>(
 
     let termRows = process.stdout.rows || 24;
     let termCols = process.stdout.columns || 80;
-    const maxVisible = Math.max(3, Math.min(config.maxItems || 8, config.options.length, termRows - 10));
+    const getMaxVisible = () =>
+      Math.max(3, Math.min(config.maxItems || 8, config.options.length, termRows - 10));
     let scrollOffset = 0;
 
     const updateScroll = () => {
+      const maxVisible = getMaxVisible();
       if (cursor < scrollOffset) {
         scrollOffset = cursor;
       } else if (cursor >= scrollOffset + maxVisible) {
@@ -511,6 +532,7 @@ export async function interactiveSelect<T extends string = string>(
 
     const renderFrame = (): string => {
       updateScroll();
+      const maxVisible = getMaxVisible();
       const safeWidth = Math.max(40, termCols - 4);
       const lines: string[] = [];
       lines.push(truncateWithAnsi(chalk.cyan.bold('◆ ') + chalk.bold.white(config.message), safeWidth));
@@ -656,13 +678,13 @@ export async function interactiveSelect<T extends string = string>(
           continue;
         }
         if (rest.startsWith('\x1b[5~')) {
-          cursor = Math.max(0, cursor - maxVisible);
+          cursor = Math.max(0, cursor - getMaxVisible());
           idx += 4;
           dirty = true;
           continue;
         }
         if (rest.startsWith('\x1b[6~')) {
-          cursor = Math.min(config.options.length - 1, cursor + maxVisible);
+          cursor = Math.min(config.options.length - 1, cursor + getMaxVisible());
           idx += 4;
           dirty = true;
           continue;
@@ -1623,7 +1645,15 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
     let savedDraft = '';
 
     const boxWidth = getSafeBoxWidth();
+    const textCapacity = Math.max(1, boxWidth - 6);
     const hintText = '· Shift+Enter: newline • /help for commands • ↑/↓: history';
+
+    const getActiveCol = () => {
+      const line = bufferLines[cursorLine] || '';
+      const beforeCursor = line.slice(0, cursorCol);
+      const beforeWidth = stringWidth(beforeCursor);
+      return 5 + Math.min(beforeWidth, textCapacity);
+    };
 
     process.stdout.write(renderTopBorder(boxWidth, isBuildMode, options.model, borderColor) + '\n');
     process.stdout.write(renderContentLine(boxWidth, '', true, isBuildMode, borderColor) + '\n');
@@ -1633,10 +1663,14 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
 
     const updateActiveLine = () => {
       const lineStr = renderContentLine(
-        boxWidth, bufferLines[cursorLine], cursorLine === 0, isBuildMode, borderColor
+        boxWidth,
+        bufferLines[cursorLine],
+        cursorLine === 0,
+        isBuildMode,
+        borderColor,
+        cursorCol
       );
-      const activeCol = 5 + Math.min(cursorCol, boxWidth - 8);
-      process.stdout.write(`\r${lineStr}\r\x1b[${activeCol}G`);
+      process.stdout.write(`\r${lineStr}\r\x1b[${getActiveCol()}G`);
     };
 
     const redrawFrom = (startLine: number) => {
@@ -1645,15 +1679,23 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
       }
       const lines: string[] = [];
       for (let i = startLine; i < bufferLines.length; i++) {
-        lines.push(renderContentLine(boxWidth, bufferLines[i], i === 0, isBuildMode, borderColor));
+        lines.push(
+          renderContentLine(
+            boxWidth,
+            bufferLines[i],
+            i === 0,
+            isBuildMode,
+            borderColor,
+            i === cursorLine ? cursorCol : undefined
+          )
+        );
       }
       lines.push(renderHintLine(boxWidth, hintText, borderColor));
       lines.push(renderBottomBorder(boxWidth, borderColor));
       process.stdout.write('\r\x1b[J');
       process.stdout.write(lines.join('\n'));
       const linesUp = (lines.length - 1) - (cursorLine - startLine);
-      const activeCol = 5 + Math.min(cursorCol, boxWidth - 8);
-      process.stdout.write(`\x1b[${linesUp}A\r\x1b[${activeCol}G`);
+      process.stdout.write(`\x1b[${linesUp}A\r\x1b[${getActiveCol()}G`);
     };
 
     const cleanup = () => {
@@ -1764,157 +1806,275 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
         handlePastedText(str); return;
       }
 
-      if (str === '\x03') {
-        cleanup();
-        const down = bufferLines.length - cursorLine;
-        process.stdout.write(`\x1b[${down}B\r\n`);
-        process.stdout.write(chalk.yellow('Exiting IUB CLI...\n'));
-        process.exit(0);
-      }
+      let idx = 0;
+      while (idx < str.length) {
+        const rest = str.slice(idx);
 
-      if (str === '\t' || str === '\x09' || str === '\x1bOQ' || str === '\x1b[12~') {
-        cleanup();
-        const linesUpToTop = cursorLine + 1;
-        process.stdout.write(`\x1b[${linesUpToTop}A\r\x1b[J`);
-        resolve('/model');
-        return;
-      }
-
-      if (str === '\x04') {
-        if (bufferLines.join('').length === 0) {
+        if (rest.startsWith('\x03')) {
           cleanup();
+          const down = (bufferLines.length - 1 - cursorLine) + 2;
+          process.stdout.write(`\x1b[${down}B\r\n`);
           process.stdout.write(chalk.yellow('Exiting IUB CLI...\n'));
           process.exit(0);
         }
-      }
 
-      if (str === '\x1b') {
-        cancel();
-        return;
-      }
-
-      if (str === '\x0a' || str === '\x1b\x0d' || str === '\x1b\r' ||
-          str === '\x1b[13;2u' || str === '\x1b[13;5u') {
-        const cur = bufferLines[cursorLine];
-        const prevLine = cursorLine;
-        bufferLines[cursorLine] = cur.slice(0, cursorCol);
-        bufferLines.splice(cursorLine + 1, 0, cur.slice(cursorCol));
-        cursorLine++; cursorCol = 0;
-        redrawFrom(prevLine); return;
-      }
-
-      if (str === '\r' || str === '\n' || str === '\r\n' || str === '\x1bOM' || str === '\x1b[13~') {
-        if (bufferLines.join('\n').trim().length === 0) return;
-        submit(); return;
-      }
-
-      if (str === '\x08' || str === '\x7f') {
-        if (cursorCol > 0) {
-          const cur = bufferLines[cursorLine];
-          bufferLines[cursorLine] = cur.slice(0, cursorCol - 1) + cur.slice(cursorCol);
-          cursorCol--; updateActiveLine();
-        } else if (cursorLine > 0) {
-          const cur = bufferLines[cursorLine];
-          const prev = bufferLines[cursorLine - 1];
-          cursorCol = prev.length;
-          bufferLines[cursorLine - 1] = prev + cur;
-          bufferLines.splice(cursorLine, 1);
-          cursorLine--;
-          process.stdout.write('\x1b[1A');
-          redrawFrom(cursorLine);
-        }
-        return;
-      }
-
-      if (str === '\x1b[D' || str === '\x1bOD') {
-        if (cursorCol > 0) { cursorCol--; process.stdout.write(`\x1b[${5 + Math.min(cursorCol, boxWidth - 8)}G`); }
-        else if (cursorLine > 0) { cursorLine--; cursorCol = bufferLines[cursorLine].length; process.stdout.write(`\x1b[1A\x1b[${5 + Math.min(cursorCol, boxWidth - 8)}G`); }
-        return;
-      }
-      if (str === '\x1b[C' || str === '\x1bOC') {
-        if (cursorCol < bufferLines[cursorLine].length) { cursorCol++; process.stdout.write(`\x1b[${5 + Math.min(cursorCol, boxWidth - 8)}G`); }
-        else if (cursorLine < bufferLines.length - 1) { cursorLine++; cursorCol = 0; process.stdout.write('\x1b[1B\x1b[5G'); }
-        return;
-      }
-      if (str === '\x1b[A' || str === '\x1bOA' || str === '\x10') { // Up / Ctrl+P
-        if (cursorLine > 0) {
-          cursorLine--;
-          cursorCol = Math.min(cursorCol, bufferLines[cursorLine].length);
-          process.stdout.write(`\x1b[1A\x1b[${5 + Math.min(cursorCol, boxWidth - 8)}G`);
+        if (rest.startsWith('\t') || rest.startsWith('\x1bOQ') || rest.startsWith('\x1b[12~')) {
+          cleanup();
+          const linesUpToTop = cursorLine + 1;
+          process.stdout.write(`\x1b[${linesUpToTop}A\r\x1b[J`);
+          resolve('/model');
           return;
         }
-        if (_commandHistory.length > 0) {
-          if (historyIdx === -1) savedDraft = bufferLines.join('\n');
-          if (historyIdx < _commandHistory.length - 1) {
-            historyIdx++;
+
+        if (rest.startsWith('\x04')) {
+          if (bufferLines.join('').length === 0) {
+            cleanup();
+            const down = (bufferLines.length - 1 - cursorLine) + 2;
+            process.stdout.write(`\x1b[${down}B\r\n`);
+            process.stdout.write(chalk.yellow('Exiting IUB CLI...\n'));
+            process.exit(0);
+          }
+          idx += 1;
+          continue;
+        }
+
+        // Shift+Enter / Alt+Enter / Ctrl+J newline
+        if (
+          rest.startsWith('\x0a') ||
+          rest.startsWith('\x1b\x0d') ||
+          rest.startsWith('\x1b[13;2u') ||
+          rest.startsWith('\x1b[13;5u')
+        ) {
+          const seqLen = rest.startsWith('\x0a') ? 1 : rest.startsWith('\x1b\x0d') ? 2 : 7;
+          const cur = bufferLines[cursorLine];
+          const prevLine = cursorLine;
+          bufferLines[cursorLine] = cur.slice(0, cursorCol);
+          bufferLines.splice(cursorLine + 1, 0, cur.slice(cursorCol));
+          cursorLine++;
+          cursorCol = 0;
+          redrawFrom(prevLine);
+          idx += seqLen;
+          continue;
+        }
+
+        if (rest.startsWith('\r\n')) {
+          if (bufferLines.join('\n').trim().length > 0) {
+            submit();
+            return;
+          }
+          idx += 2;
+          continue;
+        }
+
+        if (rest.startsWith('\r') || rest.startsWith('\x1bOM') || rest.startsWith('\x1b[13~')) {
+          if (bufferLines.join('\n').trim().length > 0) {
+            submit();
+            return;
+          }
+          idx += rest.startsWith('\r') ? 1 : rest.startsWith('\x1bOM') ? 3 : 5;
+          continue;
+        }
+
+        // Ctrl+A / Home
+        if (rest.startsWith('\x01') || rest.startsWith('\x1b[H') || rest.startsWith('\x1b[1~') || rest.startsWith('\x1bOH')) {
+          cursorCol = 0;
+          updateActiveLine();
+          idx += rest.startsWith('\x01') ? 1 : rest.startsWith('\x1b[1~') ? 4 : 3;
+          continue;
+        }
+
+        // Ctrl+E / End
+        if (rest.startsWith('\x05') || rest.startsWith('\x1b[F') || rest.startsWith('\x1b[4~') || rest.startsWith('\x1bOF')) {
+          cursorCol = bufferLines[cursorLine].length;
+          updateActiveLine();
+          idx += rest.startsWith('\x05') ? 1 : rest.startsWith('\x1b[4~') ? 4 : 3;
+          continue;
+        }
+
+        // Ctrl+U: clear current line
+        if (rest.startsWith('\x15')) {
+          bufferLines[cursorLine] = '';
+          cursorCol = 0;
+          updateActiveLine();
+          idx += 1;
+          continue;
+        }
+
+        // Delete (\x1b[3~)
+        if (rest.startsWith('\x1b[3~')) {
+          const cur = bufferLines[cursorLine];
+          if (cursorCol < cur.length) {
+            bufferLines[cursorLine] = cur.slice(0, cursorCol) + cur.slice(cursorCol + 1);
+            updateActiveLine();
+          } else if (cursorLine < bufferLines.length - 1) {
+            bufferLines[cursorLine] = cur + bufferLines[cursorLine + 1];
+            bufferLines.splice(cursorLine + 1, 1);
+            redrawFrom(cursorLine);
+          }
+          idx += 4;
+          continue;
+        }
+
+        // Backspace
+        if (rest.startsWith('\x08') || rest.startsWith('\x7f')) {
+          if (cursorCol > 0) {
+            const cur = bufferLines[cursorLine];
+            bufferLines[cursorLine] = cur.slice(0, cursorCol - 1) + cur.slice(cursorCol);
+            cursorCol--;
+            updateActiveLine();
+          } else if (cursorLine > 0) {
+            const cur = bufferLines[cursorLine];
+            const prev = bufferLines[cursorLine - 1];
+            cursorCol = prev.length;
+            bufferLines[cursorLine - 1] = prev + cur;
+            bufferLines.splice(cursorLine, 1);
+            cursorLine--;
+            process.stdout.write('\x1b[1A');
+            redrawFrom(cursorLine);
+          }
+          idx += 1;
+          continue;
+        }
+
+        // Left arrow
+        if (rest.startsWith('\x1b[D') || rest.startsWith('\x1bOD')) {
+          if (cursorCol > 0) {
+            cursorCol--;
+            updateActiveLine();
+          } else if (cursorLine > 0) {
+            cursorLine--;
+            cursorCol = bufferLines[cursorLine].length;
+            process.stdout.write('\x1b[1A');
+            updateActiveLine();
+          }
+          idx += 3;
+          continue;
+        }
+
+        // Right arrow
+        if (rest.startsWith('\x1b[C') || rest.startsWith('\x1bOC')) {
+          if (cursorCol < bufferLines[cursorLine].length) {
+            cursorCol++;
+            updateActiveLine();
+          } else if (cursorLine < bufferLines.length - 1) {
+            cursorLine++;
+            cursorCol = 0;
+            process.stdout.write('\x1b[1B');
+            updateActiveLine();
+          }
+          idx += 3;
+          continue;
+        }
+
+        // Up arrow / Ctrl+P
+        if (rest.startsWith('\x1b[A') || rest.startsWith('\x1bOA') || rest.startsWith('\x10')) {
+          const seqLen = rest.startsWith('\x10') ? 1 : 3;
+          if (cursorLine > 0) {
+            cursorLine--;
+            cursorCol = Math.min(cursorCol, bufferLines[cursorLine].length);
+            process.stdout.write('\x1b[1A');
+            updateActiveLine();
+          } else if (_commandHistory.length > 0) {
+            if (historyIdx === -1) savedDraft = bufferLines.join('\n');
+            if (historyIdx < _commandHistory.length - 1) {
+              historyIdx++;
+              const histItem = _commandHistory[_commandHistory.length - 1 - historyIdx];
+              bufferLines = histItem.split('\n');
+              cursorLine = bufferLines.length - 1;
+              cursorCol = bufferLines[cursorLine].length;
+              redrawFrom(0);
+            }
+          }
+          idx += seqLen;
+          continue;
+        }
+
+        // Down arrow / Ctrl+N
+        if (rest.startsWith('\x1b[B') || rest.startsWith('\x1bOB') || rest.startsWith('\x0e')) {
+          const seqLen = rest.startsWith('\x0e') ? 1 : 3;
+          if (cursorLine < bufferLines.length - 1) {
+            cursorLine++;
+            cursorCol = Math.min(cursorCol, bufferLines[cursorLine].length);
+            process.stdout.write('\x1b[1B');
+            updateActiveLine();
+          } else if (historyIdx > 0) {
+            historyIdx--;
             const histItem = _commandHistory[_commandHistory.length - 1 - historyIdx];
             bufferLines = histItem.split('\n');
-            cursorLine = bufferLines.length - 1;
-            cursorCol = bufferLines[cursorLine].length;
+            cursorLine = 0;
+            cursorCol = bufferLines[0].length;
+            redrawFrom(0);
+          } else if (historyIdx === 0) {
+            historyIdx = -1;
+            bufferLines = savedDraft.split('\n');
+            cursorLine = 0;
+            cursorCol = bufferLines[0].length;
             redrawFrom(0);
           }
+          idx += seqLen;
+          continue;
         }
-        return;
-      }
-      if (str === '\x1b[B' || str === '\x1bOB' || str === '\x0e') { // Down / Ctrl+N
-        if (cursorLine < bufferLines.length - 1) {
-          cursorLine++;
-          cursorCol = Math.min(cursorCol, bufferLines[cursorLine].length);
-          process.stdout.write(`\x1b[1B\x1b[${5 + Math.min(cursorCol, boxWidth - 8)}G`);
-          return;
-        }
-        if (historyIdx > 0) {
-          historyIdx--;
-          const histItem = _commandHistory[_commandHistory.length - 1 - historyIdx];
-          bufferLines = histItem.split('\n');
-          cursorLine = 0;
-          cursorCol = bufferLines[0].length;
-          redrawFrom(0);
-        } else if (historyIdx === 0) {
-          historyIdx = -1;
-          bufferLines = savedDraft.split('\n');
-          cursorLine = 0;
-          cursorCol = bufferLines[0].length;
-          redrawFrom(0);
-        }
-        return;
-      }
 
-      // PageUp (\x1b[5~) & PageDown (\x1b[6~)
-      if (str === '\x1b[5~') {
-        if (_commandHistory.length > 0) {
-          if (historyIdx === -1) savedDraft = bufferLines.join('\n');
-          historyIdx = _commandHistory.length - 1;
-          bufferLines = _commandHistory[0].split('\n');
-          cursorLine = 0;
-          cursorCol = bufferLines[0].length;
-          redrawFrom(0);
+        // PageUp (\x1b[5~) & PageDown (\x1b[6~)
+        if (rest.startsWith('\x1b[5~')) {
+          if (_commandHistory.length > 0) {
+            if (historyIdx === -1) savedDraft = bufferLines.join('\n');
+            historyIdx = _commandHistory.length - 1;
+            bufferLines = _commandHistory[0].split('\n');
+            cursorLine = 0;
+            cursorCol = bufferLines[0].length;
+            redrawFrom(0);
+          }
+          idx += 4;
+          continue;
         }
-        return;
-      }
-      if (str === '\x1b[6~') {
-        if (historyIdx !== -1) {
-          historyIdx = -1;
-          bufferLines = savedDraft.split('\n');
-          cursorLine = 0;
-          cursorCol = bufferLines[0].length;
-          redrawFrom(0);
+        if (rest.startsWith('\x1b[6~')) {
+          if (historyIdx !== -1) {
+            historyIdx = -1;
+            bufferLines = savedDraft.split('\n');
+            cursorLine = 0;
+            cursorCol = bufferLines[0].length;
+            redrawFrom(0);
+          }
+          idx += 4;
+          continue;
         }
-        return;
-      }
 
-      if (str.startsWith('\x1b[')) return;
+        // Lone Escape clears input buffer; other CSI escape sequences are skipped safely
+        if (rest[0] === '\x1b') {
+          if (idx === str.length - 1) {
+            cancel();
+            return;
+          }
+          const csiMatch = rest.match(/^\x1b\[[0-9;]*[a-zA-Z~]/);
+          if (csiMatch) {
+            idx += csiMatch[0].length;
+            continue;
+          }
+          idx += 1;
+          continue;
+        }
 
-      if (str.length === 1 && str.charCodeAt(0) >= 32) {
+        // Skip any other non-printable control characters
+        const code = rest.charCodeAt(0);
+        if (code < 32 || code === 127) {
+          idx += 1;
+          continue;
+        }
+
+        // Batch contiguous printable characters in this chunk
+        let printableEnd = idx + 1;
+        while (printableEnd < str.length) {
+          const c = str.charCodeAt(printableEnd);
+          if (c < 32 || c === 127) break;
+          printableEnd++;
+        }
+        const chunk = str.slice(idx, printableEnd);
         const cur = bufferLines[cursorLine];
-        bufferLines[cursorLine] = cur.slice(0, cursorCol) + str + cur.slice(cursorCol);
-        cursorCol++; updateActiveLine(); return;
-      }
-
-      if (str.length > 0 && !str.includes('\x1b')) {
-        const cur = bufferLines[cursorLine];
-        bufferLines[cursorLine] = cur.slice(0, cursorCol) + str + cur.slice(cursorCol);
-        cursorCol += str.length; updateActiveLine(); return;
+        bufferLines[cursorLine] = cur.slice(0, cursorCol) + chunk + cur.slice(cursorCol);
+        cursorCol += chunk.length;
+        updateActiveLine();
+        idx = printableEnd;
       }
     };
 
@@ -1943,12 +2103,15 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
 
   const urlRegex = /(?:@)?(https?:\/\/[^\s"'<>]+)/g;
   const urlMatches = Array.from(rawPrompt.matchAll(urlRegex));
+  const seenUrls = new Set<string>();
 
   for (const match of urlMatches) {
-    const targetUrl = match[1];
+    const targetUrl = match[1].replace(/[.,;:!?)]+$/, '');
+    if (!targetUrl || seenUrls.has(targetUrl)) continue;
+    seenUrls.add(targetUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
       const res = await fetch(targetUrl, {
         signal: controller.signal,
         headers: {
@@ -1956,7 +2119,6 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
           Accept: 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9',
         },
       });
-      clearTimeout(timeout);
       if (res.ok) {
         const contentType = res.headers.get('content-type') || '';
         const rawBody = await res.text();
@@ -1976,17 +2138,23 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
         );
         attachedFiles.push(`web:${targetUrl.slice(0, 45)}...`);
       }
-    } catch {}
+    } catch {
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
-  const fileRegex = /@([a-zA-Z0-9_\-\.\/\\]+)/g;
+  const fileRegex = /(?:^|\s)@([a-zA-Z0-9_\-\.\/\\]+)/g;
   const fileMatches = Array.from(rawPrompt.matchAll(fileRegex));
+  const seenPaths = new Set<string>();
 
   for (const match of fileMatches) {
     const rawPath = match[1];
     if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) continue;
     const resolvedPath = path.resolve(process.cwd(), rawPath);
+    if (seenPaths.has(resolvedPath)) continue;
     if (fs.existsSync(resolvedPath)) {
+      seenPaths.add(resolvedPath);
       const stat = fs.statSync(resolvedPath);
       if (stat.isFile()) {
         if (isImageFile(resolvedPath)) {

@@ -11,6 +11,7 @@ import {
   POLLINATIONS_DEFAULT_MODEL,
   POLLINATIONS_FREE_API_KEY,
   detectLocalOllamaModels,
+  sanitizeApiKeyInput,
 } from './config.js';
 import { createSpinner } from './ui.js';
 import { prepareInteractiveArea, interactiveSelect, interactiveInput } from './prompt.js';
@@ -1006,8 +1007,11 @@ export const POLLINATIONS_CASCADE_CHAIN = [
  * Fetch live free, tool-capable coding models from OpenRouter API in real time.
  */
 export async function fetchLiveOpenRouterFreeModels(): Promise<AgentModelPreset[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {
+      signal: controller.signal,
       headers: { 'User-Agent': 'IUB CLI' },
     });
     if (!res.ok) return [];
@@ -1043,6 +1047,8 @@ export async function fetchLiveOpenRouterFreeModels(): Promise<AgentModelPreset[
     return freeModels;
   } catch {
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -1215,7 +1221,12 @@ export async function selectAgentModelInteractive(
       ...AGENT_MODELS.filter((m) => m.category === 'local' && !existingIds.has(m.id)),
     ];
   } else if (categoryChoice === 'all') {
-    modelsToShow = AGENT_MODELS;
+    const seenIds = new Set<string>();
+    modelsToShow = AGENT_MODELS.filter((m) => {
+      if (seenIds.has(m.id)) return false;
+      seenIds.add(m.id);
+      return true;
+    });
   } else {
     modelsToShow = AGENT_MODELS.filter((m) => m.category === categoryChoice);
   }
@@ -1352,7 +1363,7 @@ async function resolveAndSavePreset(
       });
 
       if (!enteredKey) return null;
-      targetApiKey = enteredKey.trim();
+      targetApiKey = sanitizeApiKeyInput(enteredKey);
       targetBaseURL = targetProvider === 'gemini' ? undefined : preset.baseURL;
     }
   } else if (targetProvider === 'openrouter') {

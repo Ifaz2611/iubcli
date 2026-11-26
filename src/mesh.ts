@@ -234,6 +234,7 @@ export class MeshNode extends EventEmitter {
       });
 
       server.once('listening', () => {
+        server.on('error', () => {});
         this.wss = server;
         this.isHost = true;
         this.setupHostServer();
@@ -250,6 +251,7 @@ export class MeshNode extends EventEmitter {
 
     this.wss.on('connection', (ws: WebSocket) => {
       let authedPeer: MeshPeerInfo | null = null;
+      ws.on('error', () => {});
 
       // Impose a 5-second authentication timeout on unauthenticated sockets
       const authTimeout = setTimeout(() => {
@@ -352,6 +354,17 @@ export class MeshNode extends EventEmitter {
       const ws = new WebSocket(url);
       this.clientWs = ws;
       this.isHost = false;
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimer);
+        resolve();
+      };
+      const connectTimer = setTimeout(() => {
+        try { ws.terminate(); } catch {}
+        done();
+      }, 2500);
 
       ws.on('open', () => {
         // Send AUTH handshake
@@ -374,14 +387,14 @@ export class MeshNode extends EventEmitter {
                 this.peers.set(p.nodeId, p);
               }
             }
-            resolve();
+            done();
             return;
           }
 
           if (msg.type === 'AUTH_FAIL') {
             this.running = false;
             try { ws.close(); } catch {}
-            resolve();
+            done();
             return;
           }
 
@@ -425,13 +438,13 @@ export class MeshNode extends EventEmitter {
       });
 
       ws.on('error', () => {
-        resolve(); // proceed even if initial connection fails, retry in background
+        done(); // proceed even if initial connection fails, retry in background
       });
 
       ws.on('close', () => {
         this.peers.clear();
         this.clientWs = null;
-        resolve();
+        done();
         if (this.running) {
           this.scheduleReconnect();
         }
@@ -624,16 +637,17 @@ export class MeshNode extends EventEmitter {
 
   /**
    * Find a peer by role name (e.g. "backend", "frontend") or exact nodeId.
+   * Prefers remote peers over self when multiple instances share a role.
    */
   public findPeer(roleOrId: string): MeshPeerInfo | null {
     const query = roleOrId.toLowerCase().trim();
-    if (this.nodeId.toLowerCase() === query || this.role.toLowerCase() === query) {
-      return this.getMyPeerInfo();
-    }
     for (const p of this.peers.values()) {
       if (p.nodeId.toLowerCase() === query || p.role.toLowerCase() === query) {
         return p;
       }
+    }
+    if (this.nodeId.toLowerCase() === query || this.role.toLowerCase() === query) {
+      return this.getMyPeerInfo();
     }
     return null;
   }
@@ -647,13 +661,31 @@ export class MeshNode extends EventEmitter {
     args: Record<string, any> = {},
     timeoutMs = 45000
   ): Promise<string> {
+    if (targetRoleOrId === 'all' || targetRoleOrId === '*') {
+      const remotePeers = this.listPeers().filter((p) => p.nodeId !== this.nodeId);
+      if (remotePeers.length === 0) {
+        return 'Error: No other IUB CLI peer instances are currently connected in the mesh.';
+      }
+      const results = await Promise.all(
+        remotePeers.map(async (p) => {
+          const out = await this.callRemoteTool(p.nodeId, toolName, args, timeoutMs);
+          return `[Peer ${p.role} (${p.nodeId})]:\n${out}`;
+        })
+      );
+      return results.join('\n\n');
+    }
+
     const peer = this.findPeer(targetRoleOrId);
-    if (!peer && targetRoleOrId !== 'all') {
+    if (!peer) {
       const activePeers = this.listPeers().filter((p) => p.nodeId !== this.nodeId);
       const peerSummary = activePeers.length > 0
         ? `Connected peers: ${activePeers.map((p) => `"${p.role}" (${p.workspace})`).join(', ')}`
         : 'No other IUB CLI instances are currently connected.';
       return `Error: Peer instance "${targetRoleOrId}" not found in mesh. ${peerSummary}`;
+    }
+
+    if (peer.nodeId === this.nodeId) {
+      return `Error: Target "${targetRoleOrId}" resolves to this local instance. Use local tools directly instead of peer_call_tool.`;
     }
 
     const reqId = `rpc-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
@@ -719,6 +751,9 @@ export class MeshNode extends EventEmitter {
     const peer = this.findPeer(targetRoleOrId);
     if (!peer) {
       return `Error: Peer "${targetRoleOrId}" is not connected to the mesh.`;
+    }
+    if (peer.nodeId === this.nodeId) {
+      return `Error: Target "${targetRoleOrId}" resolves to this local instance.`;
     }
 
     const reqId = `msg-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;

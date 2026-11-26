@@ -1,8 +1,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Conf from 'conf';
 import { interactiveSelect, interactiveInput } from './prompt.js';
 import chalk from 'chalk';
+
+let _cachedAppVersion: string | null = null;
+
+/**
+ * Resolve the package version from package.json dynamically.
+ */
+export function getAppVersion(): string {
+  if (_cachedAppVersion) return _cachedAppVersion;
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const rel of ['../package.json', '../../package.json']) {
+      const candidate = path.resolve(here, rel);
+      if (fs.existsSync(candidate)) {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+        if (typeof pkg?.version === 'string' && pkg.version.trim()) {
+          const ver = pkg.version.trim();
+          _cachedAppVersion = ver;
+          return ver;
+        }
+      }
+    }
+  } catch {}
+  _cachedAppVersion = '4.2.10';
+  return _cachedAppVersion;
+}
 
 export type ProviderType = 'gemini' | 'openrouter' | 'custom';
 
@@ -143,7 +169,6 @@ export async function detectLocalOllamaModels(timeoutMs = 700): Promise<string[]
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch('http://127.0.0.1:11434/api/tags', { signal: controller.signal });
-    clearTimeout(timer);
     if (!res.ok) return [];
     const data = (await res.json()) as any;
     const models: string[] = Array.isArray(data?.models)
@@ -151,8 +176,9 @@ export async function detectLocalOllamaModels(timeoutMs = 700): Promise<string[]
       : [];
     return models;
   } catch {
-    clearTimeout(timer);
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -380,11 +406,28 @@ export function saveConfig(config: IUBCLIConfig): void {
   if (config.provider === 'gemini') {
     delete (config as any).baseURL;
   }
-  config.savedProviders[config.provider] = {
-    apiKey: config.apiKey,
-    model: config.model,
-    ...(config.baseURL ? { baseURL: config.baseURL } : {}),
-  };
+  const existingCustom = config.savedProviders.custom;
+  const incomingIsKeylessCustom =
+    config.provider === 'custom' &&
+    Boolean(
+      config.baseURL &&
+        (config.baseURL.includes('pollinations.ai') ||
+          config.baseURL.includes('localhost') ||
+          config.baseURL.includes('127.0.0.1'))
+    );
+  const existingCustomIsRealKey = Boolean(
+    existingCustom?.apiKey &&
+      existingCustom.apiKey !== POLLINATIONS_FREE_API_KEY &&
+      existingCustom.apiKey !== 'ollama' &&
+      !existingCustom.baseURL?.includes('pollinations.ai')
+  );
+  if (!(incomingIsKeylessCustom && existingCustomIsRealKey)) {
+    config.savedProviders[config.provider] = {
+      apiKey: config.apiKey,
+      model: config.model,
+      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+    };
+  }
   configStore.set('config', config);
 }
 
@@ -1025,7 +1068,7 @@ export async function switchProviderInteractive(
 export async function promptConfig(
   isFirstTime = false,
   fallbackConfig?: IUBCLIConfig
-): Promise<IUBCLIConfig> {
+): Promise<IUBCLIConfig | null> {
   printSetupHeader(
     isFirstTime ? 'Welcome to IUB CLI Setup' : 'IUB CLI Configuration Settings',
     isFirstTime
@@ -1103,7 +1146,7 @@ export async function promptConfig(
       console.log(chalk.yellow('Setup cancelled.\n'));
       process.exit(0);
     }
-    return existingConfig!;
+    return existingConfig ?? null;
   }
 
   // Instant Zero-Key Starter path
@@ -1127,7 +1170,7 @@ export async function promptConfig(
         console.log(chalk.yellow('Setup cancelled.\n'));
         process.exit(0);
       }
-      return existingConfig!;
+      return existingConfig ?? null;
     }
     const ollamaConfig: IUBCLIConfig = {
       provider: 'custom',
@@ -1174,7 +1217,7 @@ export async function promptConfig(
       ],
     });
     if (!keyChoice) {
-      return existingConfig!;
+      return existingConfig ?? null;
     }
     if (keyChoice === 'saved') {
       resolvedApiKey = savedForProvider.apiKey;
@@ -1189,7 +1232,7 @@ export async function promptConfig(
         console.log(chalk.yellow('Setup cancelled.\n'));
         process.exit(0);
       }
-      return existingConfig!;
+      return existingConfig ?? null;
     }
     baseURL = preset.baseURL;
     defaultModelHint = preset.defaultModel;
@@ -1211,7 +1254,7 @@ export async function promptConfig(
         console.log(chalk.yellow('Setup cancelled.\n'));
         process.exit(0);
       }
-      return existingConfig!;
+      return existingConfig ?? null;
     }
     provider = verified.provider;
     resolvedApiKey = verified.apiKey;
@@ -1237,7 +1280,7 @@ export async function promptConfig(
       console.log(chalk.yellow('Setup cancelled.\n'));
       process.exit(0);
     }
-    return existingConfig!;
+    return existingConfig ?? null;
   }
 
   const finalConfig: IUBCLIConfig = {

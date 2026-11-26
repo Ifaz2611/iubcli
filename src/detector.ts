@@ -132,11 +132,20 @@ export function detectProjectContext(rootDir: string = process.cwd()): ProjectCo
 
   // 7. Git State
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null || git branch --show-current', {
-      cwd: rootDir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    let branch = '';
+    try {
+      branch = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: rootDir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      branch = execSync('git branch --show-current', {
+        cwd: rootDir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    }
     if (branch) gitBranch = branch;
 
     const status = execSync('git status --porcelain', {
@@ -148,9 +157,13 @@ export function detectProjectContext(rootDir: string = process.cwd()): ProjectCo
   } catch {}
 
   // 8. Markdown Summary for System Prompt Injection
+  const stackDetails = [language];
+  if (hasTypeScript && language !== 'TypeScript') stackDetails.push('TypeScript');
+  if (hasTailwind) stackDetails.push('Tailwind CSS');
+
   const summaryLines: string[] = [
     `### DETECTED WORKSPACE ENVIRONMENT:`,
-    `- Framework / Stack: ${framework} (${language}${hasTypeScript ? ', TypeScript' : ''}${hasTailwind ? ', Tailwind CSS' : ''})`,
+    `- Framework / Stack: ${framework} (${stackDetails.join(', ')})`,
     `- Package Manager: ${packageManager}`,
   ];
 

@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { marked } from 'marked';
 import { markedTerminal } from 'marked-terminal';
 import { interactiveSelect } from './prompt.js';
+import { getAppVersion } from './config.js';
 import ora, { Ora } from 'ora';
 
 // Initialize terminal markdown renderer
@@ -47,7 +48,7 @@ export function printBanner(provider?: string, model?: string, workspace?: strin
 
   console.log(asciiArt);
   console.log(
-    `  ${chalk.bgHex('#003087').white.bold(' IUB CLI v2.0 ')} ${chalk.hex('#00A3FF')(
+    `  ${chalk.bgHex('#003087').white.bold(` IUB CLI v${getAppVersion()} `)} ${chalk.hex('#00A3FF')(
       'Next-Gen Autonomous BYOK Terminal Coding Agent'
     )}`
   );
@@ -204,6 +205,8 @@ export function renderToolCall(toolName: string, args: Record<string, any>): voi
     console.log(chalk.gray(`Path: `) + chalk.cyan(args.filePath));
     const lines = typeof args.content === 'string' ? args.content.split('\n').length : 0;
     console.log(chalk.gray(`Lines: `) + chalk.yellow(`${lines} lines`));
+  } else if (toolName === 'edit_file') {
+    console.log(chalk.gray(`Editing: `) + chalk.cyan(args.filePath));
   } else if (toolName === 'run_command') {
     console.log(chalk.gray(`Command: `) + chalk.magenta.bold(args.command));
   } else if (toolName === 'read_file') {
@@ -216,6 +219,12 @@ export function renderToolCall(toolName: string, args: Record<string, any>): voi
     console.log(chalk.gray(`Pattern: `) + chalk.cyan.bold(args.pattern));
   } else if (toolName === 'fetch_url') {
     console.log(chalk.gray(`Fetching URL: `) + chalk.cyan.bold(args.url));
+  } else if (toolName === 'web_search') {
+    console.log(chalk.gray(`Searching web: `) + chalk.cyan.bold(args.query));
+  } else if (toolName === 'peer_call_tool') {
+    console.log(chalk.gray(`Peer: `) + chalk.cyan.bold(args.peer) + chalk.gray(` • Tool: `) + chalk.yellow(args.tool));
+  } else if (toolName === 'peer_send_message') {
+    console.log(chalk.gray(`Peer: `) + chalk.cyan.bold(args.peer));
   }
 }
 
@@ -411,8 +420,8 @@ export function showFreeApiKeyGuide(): void {
   console.log(chalk.bold.hex('#00A3FF')('1. Google Gemini (Google AI Studio) - RECOMMENDED'));
   console.log(`   ${chalk.gray('Direct Link:')} ${chalk.bold.underline.cyan('https://aistudio.google.com/apikey')}`);
   console.log(`   ${chalk.gray('Steps:')} Sign in with Google -> Click "${chalk.white('Create API Key')}" -> Copy key.`);
-  console.log(`   ${chalk.gray('Best Free Model:')} ${chalk.bold.yellow('gemini-2.0-flash')} (100% Free, flagship speed & 1,500 RPD)`);
-  console.log(`   ${chalk.gray('Alternative Free Models:')} ${chalk.white('gemini-2.0-flash-lite, gemini-2.5-flash, gemini-1.5-flash')}`);
+  console.log(`   ${chalk.gray('Best Free Model:')} ${chalk.bold.yellow('gemini-3.5-flash-lite')} (100% Free, flagship speed & 1,500 RPD)`);
+  console.log(`   ${chalk.gray('Alternative Free Models:')} ${chalk.white('gemini-3.1-flash-lite, gemma-4-31b-it, gemini-3.5-flash')}`);
   console.log(`   ${chalk.gray('Quota:')} Free tier gives 15 Requests/min & 1,500 Requests/day for free!\n`);
 
   // 2. OpenRouter Free Models
@@ -541,8 +550,8 @@ export function showTokenLimitsGuide(): void {
   console.log(`   • ${chalk.white('mistralai/codestral-2501')}   : ${chalk.cyan('256,000 tokens')} context | Dedicated 256K software engineering model`);
   console.log(`   • ${chalk.white('google/gemini-2.5-pro')}       : ${chalk.cyan('2,097,152 tokens')} context | Massive 2 Million token long-context frontier\n`);
 
-  // 9. Local Offline Models (Ollama)
-  console.log(chalk.bold.hex('#00A3FF')('9. Local Offline Models (Ollama - localhost:11434)'));
+  // 6. Local Offline Models (Ollama)
+  console.log(chalk.bold.hex('#00A3FF')('6. Local Offline Models (Ollama - localhost:11434)'));
   console.log(`   • ${chalk.white('deepseek-r1')} & ${chalk.white('qwen2.5-coder')} : ${chalk.green.bold('100% UNLIMITED TOKENS, ZERO RATE LIMITS')}`);
   console.log(`     Runs 100% private and offline on your local CPU/GPU with no internet required!\n`);
 
@@ -564,31 +573,43 @@ export function renderGitStatus(): void {
   console.log(chalk.dim('─'.repeat(70)));
 
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null || git branch --show-current', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    let branch = '';
+    try {
+      branch = execSync('git rev-parse --abbrev-ref HEAD', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      branch = execSync('git branch --show-current', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    }
 
     const status = execSync('git status --short', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    }).trimEnd();
 
-    const log = execSync('git log -3 --oneline 2>/dev/null', {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    let log = '';
+    try {
+      log = execSync('git log -3 --oneline', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {}
 
     console.log(`  ${chalk.gray('Current Branch:')}  ${chalk.cyan.bold(branch || 'Detached / Unknown')}`);
 
     if (status.length === 0) {
       console.log(`  ${chalk.gray('Working Tree:')}   ${chalk.green('Working directory is clean')}`);
     } else {
-      const statusLines = status.split('\n');
+      const statusLines = status.split(/\r?\n/).filter(Boolean);
       console.log(`  ${chalk.gray('Modified Files:')} ${chalk.yellow(statusLines.length)} file(s):`);
       for (const line of statusLines.slice(0, 10)) {
-        const flag = line.slice(0, 2).trim();
-        const file = line.slice(3).trim();
+        const match = line.match(/^(.{2})\s+(.*)$/);
+        const flag = match ? match[1].trim() : '?';
+        const file = match ? match[2].trim() : line.trim();
         const coloredFlag = flag === 'M' ? chalk.yellow('M') : flag === '??' ? chalk.green('?') : chalk.cyan(flag);
         console.log(`    ${coloredFlag} ${file}`);
       }
@@ -614,10 +635,17 @@ export function renderGitStatus(): void {
  * Render visual Unicode directory tree (/tree)
  */
 export function renderDirectoryTree(dirPath = '.', maxDepth = 2): void {
+  const resolvedRoot = path.resolve(dirPath);
   const border = chalk.hex('#00A3FF')('─'.repeat(70));
   console.log('\n' + border);
-  console.log(chalk.bgHex('#1A237E').white.bold(` WORKSPACE TREE: ${path.resolve(dirPath)} `));
+  console.log(chalk.bgHex('#1A237E').white.bold(` WORKSPACE TREE: ${resolvedRoot} `));
   console.log(chalk.dim('─'.repeat(70)));
+
+  if (!fs.existsSync(resolvedRoot) || !fs.statSync(resolvedRoot).isDirectory()) {
+    console.log(chalk.red(`  Directory not found: ${dirPath}`));
+    console.log(border + '\n');
+    return;
+  }
 
   const IGNORED = new Set(['node_modules', '.git', '.next', 'dist', 'build', '.cache', 'coverage']);
 
@@ -651,7 +679,7 @@ export function renderDirectoryTree(dirPath = '.', maxDepth = 2): void {
     }
   }
 
-  printTree(process.cwd());
+  printTree(resolvedRoot);
   console.log(border + '\n');
 }
 
@@ -675,7 +703,7 @@ export function showAbout(): void {
   );
 
   console.log('\n' + chalk.dim('─'.repeat(74)));
-  console.log(`  ${chalk.bold.white('Project:')}              ${brand('IUB CLI v2.0.0')}`);
+  console.log(`  ${chalk.bold.white('Project:')}              ${brand(`IUB CLI v${getAppVersion()}`)}`);
   console.log(`  ${chalk.bold.white('Description:')}          Next-Gen Autonomous AI Terminal Coding Agent`);
   console.log(`  ${chalk.bold.white('Architecture:')}         Dual-Engine (BUILD & PLAN Modes) with Workspace Mesh RPC`);
   console.log(chalk.dim('─'.repeat(74)));

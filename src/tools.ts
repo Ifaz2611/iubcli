@@ -312,6 +312,9 @@ export async function editFile(
   }
 
   // Perform literal replacement without $-pattern expansion
+  if (!normalizedMode && usesCRLF && effectiveReplacement.includes('\n')) {
+    effectiveReplacement = effectiveReplacement.replace(/\r?\n/g, '\r\n');
+  }
   const idx = workingContent.indexOf(effectiveTarget);
   let updatedContent =
     workingContent.slice(0, idx) +
@@ -324,7 +327,7 @@ export async function editFile(
 
   // Track session history for /undo and /diff
   sessionFileHistory.push({
-    filePath,
+    filePath: path.relative(rootDir, targetFile).replace(/\\/g, '/'),
     isNew: false,
     previousContent: content,
     newContent: updatedContent,
@@ -365,17 +368,25 @@ export async function runCommand(command: string, signal?: AbortSignal): Promise
 }
 
 /**
- * Splits compound shell commands (e.g. "cmd1 && cmd2") while respecting quotes.
+ * Splits compound shell commands (e.g. "cmd1 && cmd2") while respecting quotes, escapes, and brace/paren blocks.
  */
 export function splitShellCommands(command: string): string[] {
   const commands: string[] = [];
   let current = '';
   let inDoubleQuote = false;
   let inSingleQuote = false;
+  let parenDepth = 0;
+  let braceDepth = 0;
 
   for (let i = 0; i < command.length; i++) {
     const char = command[i];
     const nextChar = command[i + 1];
+
+    if (char === '\\' && (inDoubleQuote || inSingleQuote) && nextChar !== undefined) {
+      current += char + nextChar;
+      i++;
+      continue;
+    }
 
     if (char === '"' && !inSingleQuote) {
       inDoubleQuote = !inDoubleQuote;
@@ -384,16 +395,25 @@ export function splitShellCommands(command: string): string[] {
       inSingleQuote = !inSingleQuote;
       current += char;
     } else if (!inDoubleQuote && !inSingleQuote) {
-      if (char === '&' && nextChar === '&') {
-        if (current.trim()) commands.push(current.trim());
-        current = '';
-        i++;
-      } else if (char === ';' || char === '\n') {
-        if (current.trim()) commands.push(current.trim());
-        current = '';
-      } else {
-        current += char;
+      if (char === '(') parenDepth++;
+      else if (char === ')' && parenDepth > 0) parenDepth--;
+      else if (char === '{') braceDepth++;
+      else if (char === '}' && braceDepth > 0) braceDepth--;
+
+      if (parenDepth === 0 && braceDepth === 0) {
+        if (char === '&' && nextChar === '&') {
+          if (current.trim()) commands.push(current.trim());
+          current = '';
+          i++;
+          continue;
+        }
+        if (char === ';' || char === '\n') {
+          if (current.trim()) commands.push(current.trim());
+          current = '';
+          continue;
+        }
       }
+      current += char;
     } else {
       current += char;
     }
@@ -404,6 +424,24 @@ export function splitShellCommands(command: string): string[] {
   }
 
   return commands;
+}
+
+/**
+ * Resolve directory change for chained `cd <dir>` / `Set-Location <dir>` steps.
+ */
+function parseDirectoryChangeCommand(subCommand: string, currentCwd: string): string | null {
+  const match = subCommand.trim().match(/^(?:cd|chdir|pushd|Set-Location|sl)\s+(.+)$/i);
+  if (!match) return null;
+  let target = match[1].trim();
+  if ((target.startsWith('"') && target.endsWith('"')) || (target.startsWith("'") && target.endsWith("'"))) {
+    target = target.slice(1, -1).trim();
+  }
+  if (!target || target.startsWith('-')) return null;
+  const resolved = path.resolve(currentCwd, target);
+  if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+    return resolved;
+  }
+  return null;
 }
 
 /**
@@ -438,6 +476,8 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
     );
 
     const stepResults: string[] = [];
+    let effectiveCwd = process.cwd();
+
     for (let i = 0; i < subCommands.length; i++) {
       if (signal?.aborted) {
         return 'Action aborted by user (Escape).';
@@ -445,7 +485,15 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
 
       const sub = subCommands[i];
       console.log(chalk.cyan(`\nStep ${i + 1}/${subCommands.length}: ${chalk.bold(sub)}`));
-      const res = await runActualProcess(sub, signal);
+
+      const nextDir = parseDirectoryChangeCommand(sub, effectiveCwd);
+      if (nextDir) {
+        effectiveCwd = nextDir;
+        stepResults.push(`[Step ${i + 1}/${subCommands.length}: ${sub}]\nChanged working directory to "${effectiveCwd}".`);
+        continue;
+      }
+
+      const res = await runActualProcess(sub, signal, effectiveCwd);
       stepResults.push(`[Step ${i + 1}/${subCommands.length}: ${sub}]\n${res}`);
 
       // If a step fails, abort subsequent steps immediately so the model can self-heal without wasting time
@@ -459,7 +507,7 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
   }
 
   console.log(chalk.cyan(`\nRunning command: ${chalk.bold(command)}...`));
-  return await runActualProcess(command, signal);
+  return await runActualProcess(command, signal, process.cwd());
 }
 
 /**
@@ -506,10 +554,32 @@ function diagnoseCommandFailure(command: string, stdout: string, stderr: string,
   return null;
 }
 
+function terminateChildTree(child: ReturnType<typeof spawn>): void {
+  try {
+    if (process.platform === 'win32' && child.pid) {
+      const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      killer.on('error', () => {});
+    } else {
+      child.kill('SIGTERM');
+    }
+  } catch {
+    try {
+      child.kill();
+    } catch {}
+  }
+}
+
 /**
  * Spawns an individual command non-interactively with detached stdin and auto-timeout.
  */
-function runActualProcess(command: string, signal?: AbortSignal): Promise<string> {
+function runActualProcess(command: string, signal?: AbortSignal, cwd: string = process.cwd()): Promise<string> {
+  if (signal?.aborted) {
+    return Promise.resolve('Command aborted by user (Escape).');
+  }
+
   return new Promise((resolve) => {
     const isWindows = process.platform === 'win32';
     let sanitizedCommand = command;
@@ -533,7 +603,7 @@ function runActualProcess(command: string, signal?: AbortSignal): Promise<string
     }
 
     const child = spawn(shellProgram, shellArgs, {
-      cwd: process.cwd(),
+      cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -545,25 +615,38 @@ function runActualProcess(command: string, signal?: AbortSignal): Promise<string
       },
     });
 
-    if (signal) {
-      signal.addEventListener('abort', () => {
-        try {
-          child.kill('SIGTERM');
-        } catch {}
-        resolve('Command aborted by user (Escape).');
-      });
-    }
-
+    let settled = false;
     let stdout = '';
     let stderr = '';
     let isTimedOut = false;
 
+    const cleanup = () => {
+      clearTimeout(timer);
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    };
+
+    const finish = (output: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(output);
+    };
+
+    const onAbort = () => {
+      terminateChildTree(child);
+      finish('Command aborted by user (Escape).');
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+
     const timeoutMs = 180000; // 3 minutes timeout
     const timer = setTimeout(() => {
       isTimedOut = true;
-      try {
-        child.kill('SIGTERM');
-      } catch {}
+      terminateChildTree(child);
     }, timeoutMs);
 
     child.stdout.on('data', (data) => {
@@ -579,15 +662,12 @@ function runActualProcess(command: string, signal?: AbortSignal): Promise<string
     });
 
     child.on('error', (err) => {
-      clearTimeout(timer);
-      resolve(`Command failed to start: ${err.message}`);
+      finish(`Command failed to start: ${err.message}`);
     });
 
     child.on('close', (code) => {
-      clearTimeout(timer);
-
       if (isTimedOut) {
-        resolve(`Command timed out after ${timeoutMs / 1000} seconds.`);
+        finish(`Command timed out after ${timeoutMs / 1000} seconds.`);
         return;
       }
 
@@ -616,13 +696,47 @@ function runActualProcess(command: string, signal?: AbortSignal): Promise<string
       }
 
       if (outputParts.length === 0) {
-        resolve(`Command executed successfully with no output (exit code 0).`);
+        finish(`Command executed successfully with no output (exit code 0).`);
         return;
       }
 
-      resolve(outputParts.join('\n\n'));
+      finish(outputParts.join('\n\n'));
     });
   });
+}
+
+/**
+ * Convert a glob wildcard pattern (e.g. "*.ts", "src/**\/*.tsx", "[id].tsx") safely to a RegExp.
+ */
+export function globToRegExp(pattern: string): RegExp {
+  const normalized = pattern.replace(/\\/g, '/').trim();
+  let regexStr = '^';
+  let i = 0;
+  while (i < normalized.length) {
+    const ch = normalized[i];
+    if (ch === '*') {
+      if (normalized[i + 1] === '*') {
+        if (normalized[i + 2] === '/') {
+          regexStr += '(?:.*/)?';
+          i += 3;
+        } else {
+          regexStr += '.*';
+          i += 2;
+        }
+      } else {
+        regexStr += normalized.includes('/') ? '[^/]*' : '.*';
+        i++;
+      }
+    } else if (ch === '?') {
+      regexStr += '[^/]';
+      i++;
+    } else {
+      regexStr += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      i++;
+    }
+  }
+  regexStr += '$';
+  return new RegExp(regexStr, 'i');
 }
 
 /**
@@ -639,9 +753,7 @@ export async function grepSearch(query: string, filePattern?: string, maxMatches
     re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   }
 
-  const patternFilter = filePattern
-    ? new RegExp(filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*'), 'i')
-    : null;
+  const patternFilter = filePattern ? globToRegExp(filePattern) : null;
 
   function walk(dir: string) {
     if (matches.length >= maxMatches) return;
@@ -662,7 +774,7 @@ export async function grepSearch(query: string, filePattern?: string, maxMatches
       if (entry.isDirectory()) {
         walk(fullPath);
       } else if (entry.isFile()) {
-        if (patternFilter && !patternFilter.test(relPath)) continue;
+        if (patternFilter && !patternFilter.test(relPath) && !patternFilter.test(entry.name)) continue;
 
         const ext = path.extname(entry.name).toLowerCase();
         if (['.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz', '.ico', '.pdf', '.exe', '.dll', '.bin'].includes(ext)) {
@@ -703,7 +815,7 @@ export async function grepSearch(query: string, filePattern?: string, maxMatches
 export async function findFiles(pattern: string, maxResults = 50): Promise<string> {
   const rootDir = process.cwd();
   const results: string[] = [];
-  const regex = new RegExp(pattern.replace(/\./g, '\\.').replace(/\*/g, '.*'), 'i');
+  const regex = globToRegExp(pattern);
 
   function walk(dir: string) {
     if (results.length >= maxResults) return;
@@ -744,19 +856,19 @@ export async function findFiles(pattern: string, maxResults = 50): Promise<strin
  * 7. fetch_url: Fetch documentation or webpage text from HTTP/HTTPS URL
  */
 export async function fetchUrl(targetUrl: string): Promise<string> {
+  if (typeof targetUrl !== 'string' || !/^https?:\/\//i.test(targetUrl.trim())) {
+    return `Error: Invalid URL "${targetUrl}". URL must start with http:// or https://.`;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch(targetUrl, {
+    const res = await fetch(targetUrl.trim(), {
       signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) iubcli/2.0',
         'Accept': 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9',
       },
     });
-
-    clearTimeout(timeout);
 
     if (!res.ok) {
       return `HTTP error ${res.status}: ${res.statusText}`;
@@ -769,11 +881,17 @@ export async function fetchUrl(targetUrl: string): Promise<string> {
       return rawText.slice(0, 30000);
     }
 
-    // Strip HTML and script/style tags for clean readable text
+    // Strip HTML and script/style tags and decode basic entities for clean readable text
     const cleanText = rawText
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -781,6 +899,8 @@ export async function fetchUrl(targetUrl: string): Promise<string> {
     return `[Fetched Content from ${targetUrl} (${truncated.length} chars)]:\n\n${truncated}`;
   } catch (err: any) {
     return `Failed to fetch URL "${targetUrl}": ${err.message}`;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -788,10 +908,9 @@ export async function fetchUrl(targetUrl: string): Promise<string> {
  * 8. web_search: Searches the web for documentation, API references, or bug solutions.
  */
 export async function webSearch(query: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
     const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
     const res = await fetch(apiUrl, {
       signal: controller.signal,
@@ -842,6 +961,8 @@ export async function webSearch(query: string): Promise<string> {
     return await fetchUrl(ddgHtmlUrl);
   } catch (err: any) {
     return `Failed to perform web search for "${query}": ${err.message}`;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -858,8 +979,11 @@ export async function executeTool(
     return 'Action aborted by user (Escape).';
   }
 
-  // If in PLAN mode, block write, edit, and command execution
-  if (mode === 'plan' && (name === 'write_file' || name === 'edit_file' || name === 'run_command')) {
+  // If in PLAN mode, block write, edit, and command execution (locally and across mesh peers)
+  const isMutatingPeerCall =
+    name === 'peer_call_tool' &&
+    ['write_file', 'edit_file', 'run_command'].includes(String(args?.tool || ''));
+  if (mode === 'plan' && (name === 'write_file' || name === 'edit_file' || name === 'run_command' || isMutatingPeerCall)) {
     const errorMsg = `Action blocked: IUB CLI is currently in PLAN MODE. File modifications and terminal commands are disabled. Switch to BUILD mode (/build or /mode) to execute changes.`;
     renderToolCall(name, args);
     renderToolResult(name, errorMsg, true);
@@ -928,7 +1052,18 @@ export async function executeTool(
         } else {
           const targetPeer = args.peer;
           const targetTool = args.tool;
-          const targetArgs = typeof args.args === 'string' ? JSON.parse(args.args) : (args.args || {});
+          let targetArgs: Record<string, any> = {};
+          if (typeof args.args === 'string') {
+            try {
+              targetArgs = JSON.parse(args.args);
+            } catch (parseErr: any) {
+              result = `Error: Invalid JSON in peer_call_tool "args": ${parseErr.message}`;
+              isError = true;
+              break;
+            }
+          } else {
+            targetArgs = args.args || {};
+          }
           result = await activeMeshNode.callRemoteTool(targetPeer, targetTool, targetArgs);
         }
         break;
