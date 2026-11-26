@@ -48,7 +48,7 @@ export function renderTopBorder(
   model: string,
   borderColor: (s: string) => string
 ): string {
-  const modeText = isBuild ? ' ⚡ BUILD ' : ' 📋 PLAN ';
+  const modeText = isBuild ? ' BUILD ' : ' PLAN ';
   const modeBadge = isBuild
     ? chalk.bgHex('#00C853').black.bold(modeText)
     : chalk.bgHex('#FFB300').black.bold(modeText);
@@ -71,10 +71,10 @@ export function renderTopBorder(
   if (modelDisplay.includes('/')) {
     modelDisplay = modelDisplay.split('/').pop() || modelDisplay;
   }
-  let modelText = ` 🤖 ${modelDisplay} `;
+  let modelText = ` ${modelDisplay} `;
   while (stringWidth(modelText) > availForModel && modelDisplay.length > 1) {
     modelDisplay = modelDisplay.slice(0, -1);
-    modelText = ` 🤖 ${modelDisplay}… `;
+    modelText = ` ${modelDisplay}… `;
   }
 
   const modelBadge = chalk.bgHex('#1A237E').white.bold(modelText);
@@ -188,7 +188,7 @@ function renderStatusLine(
   statusText: string,
   borderColor: (s: string) => string
 ): string {
-  const prefix = borderColor('│ ') + chalk.cyan('⏳ ');
+  const prefix = borderColor('│ ');
   const textCapacity = Math.max(1, width - 6);
   let visibleText = statusText;
   while (stringWidth(visibleText) > textCapacity && visibleText.length > 0) {
@@ -250,12 +250,12 @@ function renderStickyHeaderLines(
   // 1. Header Title & Brand
   if (compact) {
     let cwd = process.cwd();
-    const cwdTag = cwd ? chalk.dim(` 📁 ${cwd}`) : '';
+    const cwdTag = cwd ? chalk.dim(` ${cwd}`) : '';
     lines.push(
-      brand('  🎓 IUB CLI v2.0') +
+      brand('  IUB CLI v2.0') +
         chalk.dim(' • Developer: ') +
         chalk.bold.hex('#00A3FF')('Ifaz MD Zahin') +
-        chalk.dim(' (@ifazmdzahin)') +
+        chalk.dim(' (@Ifaz2611)') +
         cwdTag
     );
   } else if (w >= 76 && h >= 24) {
@@ -266,17 +266,17 @@ function renderStickyHeaderLines(
     lines.push(accentGold('  ██║ ╚██████╔╝ ██████╔╝ ╚██████╗ ███████╗ ██║'));
     lines.push(dim('  ╚═╝  ╚═════╝  ╚═════╝   ╚═════╝ ╚══════╝ ╚═╝'));
   } else if (w >= 52) {
-    lines.push(brand('  █ █ █ █▄▄ █▀▀ █░░ █ ') + chalk.dim('🎓 IUB CLI v2.0'));
+    lines.push(brand('  █ █ █ █▄▄ █▀▀ █░░ █ ') + chalk.dim('IUB CLI v2.0'));
     lines.push(accentGold('  █ █▄█ █▄█ █▄▄ █▄▄ █ ') + chalk.dim('Autonomous Coding Agent'));
   } else {
-    lines.push(brand('  🎓 IUB CLI v2.0 ') + chalk.dim('Next-Gen AI Coding Agent'));
+    lines.push(brand('  IUB CLI v2.0 ') + chalk.dim('Next-Gen AI Coding Agent'));
   }
 
   // 2. Developer Name & Workspace Path (Only if not compact)
   if (!compact) {
     const devText = `Developer: Ifaz MD Zahin`;
-    let rDevPlain = `  ${devText} (@ifazmdzahin)`;
-    let devPart = chalk.dim('  Developer: ') + chalk.bold.hex('#00A3FF')('Ifaz MD Zahin') + chalk.dim(' (@ifazmdzahin)');
+    let rDevPlain = `  ${devText} (@Ifaz2611)`;
+    let devPart = chalk.dim('  Developer: ') + chalk.bold.hex('#00A3FF')('Ifaz MD Zahin') + chalk.dim(' (@Ifaz2611)');
 
     if (stringWidth(rDevPlain) > w) {
       rDevPlain = `  ${devText}`;
@@ -290,13 +290,13 @@ function renderStickyHeaderLines(
     } else if (maxCwd <= 6) {
       cwd = '';
     }
-    const cwdTag = cwd ? chalk.dim(` 📁 ${cwd}`) : '';
-    const rDevPadding = Math.max(0, w - stringWidth(rDevPlain) - (cwd ? stringWidth(` 📁 ${cwd}`) : 0));
+    const cwdTag = cwd ? chalk.dim(` ${cwd}`) : '';
+    const rDevPadding = Math.max(0, w - stringWidth(rDevPlain) - (cwd ? stringWidth(` ${cwd}`) : 0));
     lines.push(`${devPart}${' '.repeat(rDevPadding)}${cwdTag}`);
   }
 
   // 3. Active Provider, Model, and Mode badge
-  const modeBadge = mode === 'build' ? chalk.bold.green('⚡ BUILD Mode') : chalk.bold.yellow('📋 PLAN Mode');
+  const modeBadge = mode === 'build' ? chalk.bold.green('BUILD Mode') : chalk.bold.yellow('PLAN Mode');
   const mesh = getActiveMeshNode();
   let meshTextPlain = '';
   let meshTextFormatted = '';
@@ -307,7 +307,7 @@ function renderStickyHeaderLines(
     meshTextFormatted = `  ${chalk.dim('•')}  ${chalk.dim('Mesh:')} ${chalk.bold.hex('#00E5FF')(`[${mesh.role.toUpperCase()}]`)} ${chalk.dim(`(${peerLabel})`)}`;
   }
 
-  let rowModelPlain = `  Provider: ${provider}  •  Model: ${model}  •  Mode: ${mode === 'build' ? '⚡ BUILD Mode' : '📋 PLAN Mode'}${meshTextPlain}`;
+  let rowModelPlain = `  Provider: ${provider}  •  Model: ${model}  •  Mode: ${mode === 'build' ? 'BUILD Mode' : 'PLAN Mode'}${meshTextPlain}`;
   let rowModel = `  ${chalk.dim('Provider:')} ${chalk.bold.cyan(provider)}  ${chalk.dim('•')}  ${chalk.dim('Model:')} ${chalk.bold.hex('#00A3FF')(model)}  ${chalk.dim('•')}  ${chalk.dim('Mode:')} ${modeBadge}${meshTextFormatted}`;
 
   if (stringWidth(rowModelPlain) > w) {
@@ -599,8 +599,7 @@ export async function interactiveSelect<T extends string = string>(
       }
       const chosen = config.options[cursor];
       process.stdout.write(
-        chalk.hex('#00A3FF')('✔ ') +
-          chalk.bold(config.message) +
+        chalk.bold(config.message) +
           ' ' +
           chalk.hex('#00A3FF').bold(chosen.label) +
           '\n\n'
@@ -613,9 +612,7 @@ export async function interactiveSelect<T extends string = string>(
       if (lastLineCount > 0) {
         process.stdout.write(`\x1b[${lastLineCount}A\r\x1b[J`);
       }
-      process.stdout.write(
-        chalk.gray('✖ ') + chalk.dim(`${config.message} (cancelled)\n\n`)
-      );
+      process.stdout.write(chalk.dim(`${config.message} (cancelled)\n\n`));
       resolve(null);
     };
 
@@ -835,7 +832,7 @@ export async function interactiveInput(config: InteractiveInputConfig): Promise<
       lines.push(`  ${chalk.hex('#00A3FF').bold('❯')} ${shown}`);
 
       if (errorMsg) {
-        lines.push(chalk.red(`  ✖ ${truncateWithAnsi(errorMsg, safeWidth - 6)}`));
+        lines.push(chalk.red(`  ${truncateWithAnsi(errorMsg, safeWidth - 6)}`));
       } else {
         lines.push(chalk.dim('  Enter: confirm • Esc: cancel'));
       }
@@ -881,7 +878,7 @@ export async function interactiveInput(config: InteractiveInputConfig): Promise<
       finishClear();
       const shownDone = config.mask ? chalk.dim('••••••••') : chalk.hex('#00A3FF').bold(value || '(empty)');
       process.stdout.write(
-        chalk.hex('#00A3FF')('✔ ') + chalk.bold(config.message) + ' ' + shownDone + '\n\n'
+        chalk.bold(config.message) + ' ' + shownDone + '\n\n'
       );
       resolve(value);
     };
@@ -889,7 +886,7 @@ export async function interactiveInput(config: InteractiveInputConfig): Promise<
     const cancel = () => {
       cleanup();
       finishClear();
-      process.stdout.write(chalk.gray('✖ ') + chalk.dim(`${config.message} (cancelled)\n\n`));
+      process.stdout.write(chalk.dim(`${config.message} (cancelled)\n\n`));
       resolve(null);
     };
 
@@ -1996,7 +1993,7 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
           const imgPayload = loadImagePayload(resolvedPath);
           if (imgPayload) {
             attachedImages.push(imgPayload);
-            attachedFiles.push(`🖼️ @${rawPath}`);
+            attachedFiles.push(`@${rawPath}`);
             contexts.push(
               `\n--- [Attached Image: @${rawPath} (${(imgPayload.size / 1024).toFixed(1)} KB, ${imgPayload.mimeType})] ---`
             );
@@ -2039,7 +2036,7 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
       if (payload) {
         attachedImages.push(payload);
         const name = path.basename(resolvedPath);
-        attachedFiles.push(`🖼️ ${name}`);
+        attachedFiles.push(`${name}`);
         contexts.push(
           `\n--- [Attached Image: ${name} (${(payload.size / 1024).toFixed(1)} KB, ${payload.mimeType})] ---`
         );
@@ -2049,7 +2046,7 @@ export async function expandOpenCodeMentions(rawPrompt: string): Promise<{
 
   if (attachedFiles.length > 0) {
     console.log(
-      chalk.bgHex('#002B5C').hex('#00A3FF').bold(' 📎 Resource Ingestion: ') +
+      chalk.bgHex('#002B5C').hex('#00A3FF').bold(' Resource Ingestion: ') +
         chalk.white(` ${attachedFiles.length} item(s): `) +
         chalk.cyan.bold(attachedFiles.join(', '))
     );

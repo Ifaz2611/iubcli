@@ -39,7 +39,7 @@
   "homepage": "https://iubcli.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ifaz2611/iubcli"
+    "url": "git+https://github.com/Ifaz2611/iubcli.git"
   },
   "bugs": {
     "url": "https://github.com/Ifaz2611/iubcli/issues"

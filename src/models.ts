@@ -28,7 +28,7 @@ export interface AgentModelPreset {
 
 export const AGENT_MODELS: AgentModelPreset[] = [
   // ==========================================
-  // 🚀 Built-in Zero-Key Instant Free Model
+  // Built-in Zero-Key Instant Free Model
   // ==========================================
   {
     id: POLLINATIONS_DEFAULT_MODEL,
@@ -41,11 +41,11 @@ export const AGENT_MODELS: AgentModelPreset[] = [
     baseURL: POLLINATIONS_BASE_URL,
   },
   // ==========================================
-  // 🌟 100% Free OpenRouter Models (Zero Cost)
+  // 100% Free OpenRouter Models (Zero Cost)
   // ==========================================
   {
     id: 'openrouter/free',
-    name: 'OpenRouter Free Agent (🌟 Recommended)',
+    name: 'OpenRouter Free Agent (Recommended)',
     provider: 'openrouter',
     category: 'free',
     description: 'Auto-routes to the best active free coding model with tool calling. 0% downtime.',
@@ -245,7 +245,7 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // ⚡ OpenCode Console & Freebuff Zero-Key Built-in Models ($0 Endpoints)
+  // OpenCode Console & Freebuff Zero-Key Built-in Models ($0 Endpoints)
   // ==========================================
   // 1. Zero-Retention / No-Training Models:
   {
@@ -447,11 +447,11 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // 🔷 Google Gemini Suite (100% Free Tier: 1M Tokens, 1,500 Req/Day)
+  // Google Gemini Suite (100% Free Tier: 1M Tokens, 1,500 Req/Day)
   // ==========================================
   {
     id: 'gemini-3.5-flash-lite',
-    name: 'Gemini 3.5 Flash-Lite (🌟 Verified Active Free Coder)',
+    name: 'Gemini 3.5 Flash-Lite (Verified Active Free Coder)',
     provider: 'gemini',
     category: 'gemini',
     description: "Google's ultra-fast verified free model with full tool calling, instant token generation, and zero downtime.",
@@ -577,11 +577,11 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // 🧠 DeepSeek Frontier Models (Free Tokens & High Speed)
+  // DeepSeek Frontier Models (Free Tokens & High Speed)
   // ==========================================
   {
     id: 'deepseek-chat',
-    name: 'DeepSeek V4.1 / V3.2 Chat (🌟 5M Free Tokens)',
+    name: 'DeepSeek V4.1 / V3.2 Chat (5M Free Tokens)',
     provider: 'custom',
     category: 'deepseek',
     description: 'DeepSeek flagship frontier coding model with 5M free tokens on platform.deepseek.com.',
@@ -641,11 +641,11 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // ⚡ Tencent HY4 Suite (1M Token Context - Free Promotional Tokens)
+  // Tencent HY4 Suite (1M Token Context - Free Promotional Tokens)
   // ==========================================
   {
     id: 'tencent/hy4-flash',
-    name: 'Tencent Hy4 Flash (🌟 1M Context - Free Promo)',
+    name: 'Tencent Hy4 Flash (1M Context - Free Promo)',
     provider: 'openrouter',
     category: 'hy4',
     description: 'Tencent frontier Hy4 Flash model with 1,048,576 token context and ultra-fast generation.',
@@ -675,11 +675,11 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // 🚀 Zhipu AI GLM 5.3 Suite (Daily Free Tokens - 1M Context)
+  // Zhipu AI GLM 5.3 Suite (Daily Free Tokens - 1M Context)
   // ==========================================
   {
     id: 'z-ai/glm-5.3-flash',
-    name: 'GLM 5.3 Flash (🌟 Daily Free Tokens & 1M Context)',
+    name: 'GLM 5.3 Flash (Daily Free Tokens & 1M Context)',
     provider: 'openrouter',
     category: 'glm',
     description: 'Z.ai latest GLM 5.3 Flash with 1,048,576 token context and daily free tokens on BigModel.',
@@ -719,7 +719,7 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // ⚡ Groq Cloud Free Tier (14,400 Req/Day Free)
+  // Groq Cloud Free Tier (14,400 Req/Day Free)
   // ==========================================
   {
     id: 'llama-3.3-70b-versatile',
@@ -773,7 +773,7 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // ⚡ Cerebras Cloud Free Tier (1,800+ Tokens/Sec)
+  // Cerebras Cloud Free Tier (1,800+ Tokens/Sec)
   // ==========================================
   {
     id: 'llama3.3-70b',
@@ -797,7 +797,7 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // 💻 Local Offline Models (Ollama)
+  // Local Offline Models (Ollama)
   // ==========================================
   {
     id: 'qwen2.5-coder',
@@ -821,7 +821,7 @@ export const AGENT_MODELS: AgentModelPreset[] = [
   },
 
   // ==========================================
-  // 👑 Frontier AI Coding Agents (OpenCode Flagships)
+  // Frontier AI Coding Agents (OpenCode Flagships)
   // ==========================================
   {
     id: 'anthropic/claude-3.5-sonnet',
@@ -1080,16 +1080,16 @@ export async function selectAgentModelInteractive(
         currentConfig.savedProviders?.custom?.apiKey)
   );
 
-  const orBadge = hasOpenRouterReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs OpenRouter Key]');
-  const geminiBadge = hasGeminiReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs Gemini Key]');
-  const groqBadge = hasGroqReady ? chalk.green(' [✔ Ready]') : chalk.yellow(' [🔑 Needs Groq Key]');
+  const orBadge = hasOpenRouterReady ? chalk.green(' [Ready]') : chalk.yellow(' [Needs OpenRouter Key]');
+  const geminiBadge = hasGeminiReady ? chalk.green(' [Ready]') : chalk.yellow(' [Needs Gemini Key]');
+  const groqBadge = hasGroqReady ? chalk.green(' [Ready]') : chalk.yellow(' [Needs Groq Key]');
 
   const currentPreset = AGENT_MODELS.find((m) => m.id === currentConfig.model);
   const defaultCategory =
     currentPreset?.category ||
     (currentConfig.provider === 'gemini' ? 'gemini' : currentConfig.provider === 'openrouter' ? 'free' : 'free');
 
-  console.log(chalk.bold.hex('#00A3FF')('\n🤖 IUB CLI AI Agent & Model Selector\n'));
+  console.log(chalk.bold.hex('#00A3FF')('\nIUB CLI AI Agent & Model Selector\n'));
 
   // 1. Choose Category (or use initialCategory shortcut)
   let categoryChoice = initialCategory;
@@ -1101,62 +1101,62 @@ export async function selectAgentModelInteractive(
       options: [
         {
           value: 'gemini',
-          label: `${chalk.bold.yellow('🔷 Google Gemini Free Suite')}${geminiBadge}`,
+          label: `${chalk.bold.yellow('Google Gemini Free Suite')}${geminiBadge}`,
           hint: 'Gemini 3.5/3.1 Flash Lite, Gemma 4 • 1M-2M context, 1,500 req/day free',
         },
         {
           value: 'free',
-          label: `${chalk.bold.green('🌟 Free Models & Zero-Key Starter AI')}${orBadge}`,
+          label: `${chalk.bold.green('Free Models & Zero-Key Starter AI')}${orBadge}`,
           hint: 'Includes Zero-Key GPT-OSS 20B (no key) + OpenRouter free models (Nemotron, Gemma 4)',
         },
         {
           value: 'live_sync',
-          label: `${chalk.bold.hex('#00FFFF')('🔄 Live Sync: OpenRouter Active Free Models')}${orBadge}`,
+          label: `${chalk.bold.hex('#00FFFF')('Live Sync: OpenRouter Active Free Models')}${orBadge}`,
           hint: 'Queries OpenRouter API live for active tool-capable free models',
         },
         {
           value: 'zen',
-          label: `${chalk.bold.hex('#00E5FF')('⚡ OpenCode & Freebuff Built-in Roster')}${orBadge}`,
+          label: `${chalk.bold.hex('#00E5FF')('OpenCode & Freebuff Built-in Roster')}${orBadge}`,
           hint: 'DeepSeek V4.1, GLM 5.3, Solar routed via OpenRouter',
         },
         {
           value: 'deepseek',
-          label: `${chalk.bold.hex('#00D2FF')('🧠 DeepSeek Frontier Models')}`,
+          label: `${chalk.bold.hex('#00D2FF')('DeepSeek Frontier Models')}`,
           hint: 'DeepSeek Platform (5M free), Groq & OpenRouter',
         },
         {
           value: 'hy4',
-          label: `${chalk.bold.hex('#FF6D00')('⚡ Tencent HY4 Suite')}${orBadge}`,
+          label: `${chalk.bold.hex('#FF6D00')('Tencent HY4 Suite')}${orBadge}`,
           hint: 'Hy4 Flash, Hy4 1M Frontier (1M tokens context)',
         },
         {
           value: 'glm',
-          label: `${chalk.bold.hex('#7C4DFF')('🚀 Zhipu AI GLM 5.3 Suite')}${orBadge}`,
+          label: `${chalk.bold.hex('#7C4DFF')('Zhipu AI GLM 5.3 Suite')}${orBadge}`,
           hint: 'GLM 5.3 Flash, GLM 5.3 1M (daily free tokens)',
         },
         {
           value: 'groq',
-          label: `${chalk.bold.hex('#FF9900')('⚡ Groq & Cerebras Free Tier')}${groqBadge}`,
+          label: `${chalk.bold.hex('#FF9900')('Groq & Cerebras Free Tier')}${groqBadge}`,
           hint: 'Llama 3.3 70B, Qwen Coder • 14,400 requests/day, 500+ tok/s',
         },
         {
           value: 'flagship',
-          label: `${chalk.bold.hex('#FFD700')('👑 Frontier Flagship Coding Agents')}${orBadge}`,
+          label: `${chalk.bold.hex('#FFD700')('Frontier Flagship Coding Agents')}${orBadge}`,
           hint: 'Claude 3.5 Sonnet, GPT-4o, Codestral via OpenRouter',
         },
         {
           value: 'local',
-          label: `${chalk.bold.magenta('💻 Local Offline Models')} ${chalk.green('[✔ No API Key Needed]')}`,
+          label: `${chalk.bold.magenta('Local Offline Models')} ${chalk.green('[No API Key Needed]')}`,
           hint: 'Runs 100% locally via Ollama on localhost:11434',
         },
         {
           value: 'all',
-          label: `${chalk.bold('📋 Browse All Model Presets')}`,
+          label: `${chalk.bold('Browse All Model Presets')}`,
           hint: 'View complete catalog of all presets',
         },
         {
           value: 'custom',
-          label: `${chalk.bold('✏️  Enter Custom Model ID Manually')}`,
+          label: `${chalk.bold(' Enter Custom Model ID Manually')}`,
           hint: 'Type any model slug for your current provider',
         },
       ],
@@ -1177,7 +1177,7 @@ export async function selectAgentModelInteractive(
 
     currentConfig.model = customModel.trim();
     saveConfig(currentConfig);
-    console.log(chalk.green(`✔ Active Agent Model set to: ${chalk.bold(currentConfig.model)}\n`));
+    console.log(chalk.green(`Active Agent Model set to: ${chalk.bold(currentConfig.model)}\n`));
     return currentConfig;
   }
 
@@ -1191,10 +1191,10 @@ export async function selectAgentModelInteractive(
     spinner.stop();
 
     if (liveModels.length > 0) {
-      console.log(chalk.green(`✔ Found ${liveModels.length} active free tool-capable models on OpenRouter!\n`));
+      console.log(chalk.green(`Found ${liveModels.length} active free tool-capable models on OpenRouter!\n`));
       modelsToShow = liveModels;
     } else {
-      console.log(chalk.yellow('⚠️ Could not connect to OpenRouter live API. Falling back to built-in presets.\n'));
+      console.log(chalk.yellow('Could not connect to OpenRouter live API. Falling back to built-in presets.\n'));
       modelsToShow = AGENT_MODELS.filter((m) => m.category === 'free');
     }
   } else if (categoryChoice === 'local') {
@@ -1246,7 +1246,7 @@ export async function selectAgentModelInteractive(
 
   console.log(
     chalk.green(
-      `✔ Active Agent Model: ${chalk.bold(preset.name)}\n` +
+      `Active Agent Model: ${chalk.bold(preset.name)}\n` +
         `  Provider: ${chalk.bold(formatProviderLabel(updatedConfig))} • Model ID: ${chalk.cyan(preset.id)}\n`
     )
   );
@@ -1328,12 +1328,12 @@ async function resolveAndSavePreset(
         options: [
           {
             value: 'cancel',
-            label: chalk.green(`⬅ Keep using current model (${currentConfig.model})`),
+            label: chalk.green(`Keep using current model (${currentConfig.model})`),
             hint: 'Do not ask for a key — keep working immediately',
           },
           {
             value: 'enter',
-            label: chalk.cyan(`🔑 Enter API Key for ${serviceName}`),
+            label: chalk.cyan(`Enter API Key for ${serviceName}`),
             hint: serviceUrl,
           },
         ],

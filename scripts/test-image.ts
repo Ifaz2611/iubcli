@@ -28,5 +28,5 @@ fs.unlinkSync(testImgPath);
 const clipResult = captureClipboardImage();
 console.log('Clipboard capture callable without throwing:', clipResult === null || typeof clipResult === 'string');
 
-console.log('All image tests passed! ✅');
+console.log('All image tests passed! ');
 process.exit(0);

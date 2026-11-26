@@ -130,7 +130,7 @@ export async function exploreAndSelectFreeModel(
 ): Promise<FreeModelCandidate | null> {
   if (!silent) {
     process.stdout.write(
-      chalk.cyan('\n🔍 Exploring all available models across providers to find active free tokens...\n')
+      chalk.cyan('\nExploring all available models across providers to find active free tokens...\n')
     );
   }
 

@@ -49,7 +49,7 @@ export function getSystemPrompt(mode: AgentMode = 'build'): string {
     const peers = meshNode.listPeers().filter((p) => p.nodeId !== meshNode.nodeId);
     if (peers.length > 0) {
       meshContext =
-        `\n### 🌐 CONNECTED WORKSPACE MESH PEERS (CROSS-INSTANCE COLLABORATION):\n` +
+        `\n### CONNECTED WORKSPACE MESH PEERS (CROSS-INSTANCE COLLABORATION):\n` +
         `This instance role is [${meshNode.role.toUpperCase()}] at "${meshNode.workspace}".\n` +
         `Active connected peer instances in the mesh:\n` +
         peers
@@ -69,7 +69,7 @@ export function getSystemPrompt(mode: AgentMode = 'build'): string {
   if (mode === 'plan') {
     return `You are IUB CLI, a world-class Principal Software Architect and Systems Designer running directly in the user's terminal. You are designed to be more intelligent, thorough, and reliable than other agents like OpenCode or FreeBuf.
 
-### 🚨 CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
+### CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
 - YOU MUST COMMUNICATE AND RESPOND EXCLUSIVELY IN ENGLISH.
 - UNDER NO CIRCUMSTANCES SHOULD YOU OUTPUT BENGALI SCRIPT (বাংলা).
 - Monospace terminal consoles and Windows fonts cannot render complex Bengali ligatures and conjuncts properly, resulting in broken, overlapping characters.
@@ -77,7 +77,7 @@ export function getSystemPrompt(mode: AgentMode = 'build'): string {
 
 ${envContext.summary}
 ${meshContext}
-### 🌟 CURRENT ACTIVE MODE: 📋 PLAN MODE (ARCHITECT & PLANNING ONLY)
+### CURRENT ACTIVE MODE: PLAN MODE (ARCHITECT & PLANNING ONLY)
 - You are strictly in PLAN MODE. You act as an expert senior software architect.
 - Your primary duty is to deeply investigate the workspace, analyze requirements, explore existing code, and formulate a comprehensive, battle-tested, numbered step-by-step architectural plan.
 - In this mode, you ONLY have read-only tools:
@@ -92,12 +92,12 @@ ${meshContext}
   9. peer_send_message(peer, message): Coordinate architectural contracts with peers.
 - YOU CANNOT AND MUST NOT write files or run terminal commands. Any attempt will be safely blocked.
 - Your architectural breakdown MUST be thorough and structured:
-  1. 🎯 Executive Architecture Summary & Requirements Analysis.
-  2. 📂 Proposed Project & Directory Structure.
-  3. 📦 Dependencies, Libraries & Versions needed.
-  4. 🧩 Core Components, Modules, Data Models & API Contracts.
-  5. 🛠️ Step-by-Step Implementation Roadmap (ordered sequence of files to create/edit).
-  6. 🧪 Verification & Testing Strategy.
+  1. Executive Architecture Summary & Requirements Analysis.
+  2. Proposed Project & Directory Structure.
+  3. Dependencies, Libraries & Versions needed.
+  4. Core Components, Modules, Data Models & API Contracts.
+  5. Step-by-Step Implementation Roadmap (ordered sequence of files to create/edit).
+  6. Verification & Testing Strategy.
 
 ### 1. LANGUAGE & COMMUNICATION RULES (CRITICAL):
 - ALWAYS write all responses, architectural plans, explanations, code, and terminal guidance in clear, professional ENGLISH.
@@ -108,7 +108,7 @@ ${meshContext}
   // BUILD MODE
   return `You are IUB CLI v2.0, a world-class Principal Full-Stack Software Engineer and Autonomous AI Coding Agent running directly in the user's terminal. You are designed to outperform modern AI coding agents like OpenCode and Claude Code in intelligence, self-healing, search speed, and reliability.
 
-### 🚨 CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
+### CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
 - YOU MUST COMMUNICATE AND RESPOND EXCLUSIVELY IN ENGLISH.
 - UNDER NO CIRCUMSTANCES SHOULD YOU OUTPUT BENGALI SCRIPT (বাংলা).
 - Monospace terminal consoles and Windows fonts cannot render complex Bengali ligatures and conjuncts properly, resulting in broken, overlapping characters.
@@ -116,7 +116,7 @@ ${meshContext}
 
 ${envContext.summary}
 ${meshContext}
-### 🌟 CURRENT ACTIVE MODE: ⚡ BUILD MODE (AUTONOMOUS BUILDER)
+### CURRENT ACTIVE MODE: BUILD MODE (AUTONOMOUS BUILDER)
 - You are 100% in BUILD MODE right now. You are NOT in plan mode.
 - File creation (write_file), surgical editing (edit_file), and terminal command execution (run_command) are FULLY UNLOCKED AND ACTIVE.
 - NEVER claim or state that you are in plan mode, and NEVER claim you cannot write or edit files.
@@ -137,7 +137,7 @@ ${meshContext}
   11. peer_call_tool(peer, tool, args): Remotely execute tools (read_file, write_file, edit_file, run_command, list_files) in peer workspaces.
   12. peer_send_message(peer, message): Coordinate schemas, contracts, or tasks with peer instances.
 
-### 🧠 INTELLIGENT AGENT PROTOCOL (FOLLOW RIGOROUSLY):
+### INTELLIGENT AGENT PROTOCOL (FOLLOW RIGOROUSLY):
 1. **Investigate Before Acting**:
    - Always explore the workspace with list_files, read_file, or grep_search first. Never code blindly without understanding existing dependencies and architecture.
 2. **Surgical Editing Preference (CRITICAL)**:
@@ -304,13 +304,13 @@ export class IUBAgent {
       this.openAIMessages.push({
         role: 'system',
         content:
-          '[SYSTEM DIRECTIVE: The user has switched the agent to ⚡ BUILD MODE. You have full authority to use write_file, edit_file, and run_command immediately. Any previous PLAN MODE restrictions or tool blocks are completely lifted. Code and build the solution right now.]',
+          '[SYSTEM DIRECTIVE: The user has switched the agent to BUILD MODE. You have full authority to use write_file, edit_file, and run_command immediately. Any previous PLAN MODE restrictions or tool blocks are completely lifted. Code and build the solution right now.]',
       });
       this.geminiContents.push({
         role: 'user',
         parts: [
           {
-            text: '[SYSTEM NOTIFICATION: IUB CLI is now in ⚡ BUILD MODE. Autonomous file creation, editing, and terminal commands are active.]',
+            text: '[SYSTEM NOTIFICATION: IUB CLI is now in BUILD MODE. Autonomous file creation, editing, and terminal commands are active.]',
           },
         ],
       });
@@ -326,13 +326,13 @@ export class IUBAgent {
       this.openAIMessages.push({
         role: 'system',
         content:
-          '[SYSTEM DIRECTIVE: The user has switched the agent to 📋 PLAN MODE. Act as Senior Architect formulating structured plans without modifying workspace files.]',
+          '[SYSTEM DIRECTIVE: The user has switched the agent to PLAN MODE. Act as Senior Architect formulating structured plans without modifying workspace files.]',
       });
       this.geminiContents.push({
         role: 'user',
         parts: [
           {
-            text: '[SYSTEM NOTIFICATION: IUB CLI is now in 📋 PLAN MODE. Only read-only tools are enabled.]',
+            text: '[SYSTEM NOTIFICATION: IUB CLI is now in PLAN MODE. Only read-only tools are enabled.]',
           },
         ],
       });
@@ -707,7 +707,7 @@ export class IUBAgent {
       return explored.id;
     }
 
-    // 🚀 NEVER-STOP RESILIENCE LOOP:
+    // NEVER-STOP RESILIENCE LOOP:
     // If all free endpoints are temporarily in rolling rate-limits (e.g. 15 RPM),
     // NEVER stop or abort execution! Auto-cooldown for a few seconds, reset attempts, and continue!
     if (this.neverStopAttempts < 10) {
@@ -715,7 +715,7 @@ export class IUBAgent {
       const cooldownSec = 10;
       renderRollingRateLimitNotice(currentModel, cooldownSec, 'All free models in rolling rate limit');
       for (let rem = cooldownSec; rem > 0; rem--) {
-        const msg = `⏳ Free rate limits active • Auto-cooling down (${rem}s) [Never-Stop Mode]... (Esc to cancel)`;
+        const msg = `Free rate limits active • Auto-cooling down (${rem}s) [Never-Stop Mode]... (Esc to cancel)`;
         updateFixedBottomStatus(msg, { mode: this.mode, model: this.config.model });
         await new Promise((r) => setTimeout(r, 1000));
       }
@@ -736,7 +736,7 @@ export class IUBAgent {
       }
     }
 
-    // 🛡️ Final guaranteed fallback: Built-in Zero-Key Pollinations AI (works without any user key)
+    // Final guaranteed fallback: Built-in Zero-Key Pollinations AI (works without any user key)
     if (this.config.baseURL !== POLLINATIONS_BASE_URL || this.config.model !== POLLINATIONS_DEFAULT_MODEL) {
       renderCascadeNotice(currentModel, POLLINATIONS_DEFAULT_MODEL, 'Switching to Zero-Key Built-in Free AI');
       this.config.provider = 'custom';
@@ -862,14 +862,14 @@ export class IUBAgent {
     options?: { signal?: AbortSignal; images?: ImagePayload[] }
   ): Promise<string> {
     if (options?.signal?.aborted) {
-      return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+      return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
     }
 
     this.resetCascadeAttempts();
     const modeDirective =
       this.mode === 'build'
-        ? `[SYSTEM STATUS: ACTIVE MODE = ⚡ BUILD MODE. All coding tools (write_file, edit_file, run_command) are FULLY UNLOCKED AND ACTIVE. You MUST NOT claim you are in PLAN mode or ask the user to type /build. You are ALREADY in BUILD mode. Immediately call your tools to implement, create, or edit code.]`
-        : `[SYSTEM STATUS: ACTIVE MODE = 📋 PLAN MODE. You are in read-only planning mode. Formulate comprehensive step-by-step plans without modifying files.]`;
+        ? `[SYSTEM STATUS: ACTIVE MODE = BUILD MODE. All coding tools (write_file, edit_file, run_command) are FULLY UNLOCKED AND ACTIVE. You MUST NOT claim you are in PLAN mode or ask the user to type /build. You are ALREADY in BUILD mode. Immediately call your tools to implement, create, or edit code.]`
+        : `[SYSTEM STATUS: ACTIVE MODE = PLAN MODE. You are in read-only planning mode. Formulate comprehensive step-by-step plans without modifying files.]`;
 
     const englishEnforcedInput = `[CRITICAL: You must provide all explanations, responses, and terminal output strictly in clear ENGLISH. Do not use Bengali script under any circumstances.]\n${modeDirective}\n\n${userInput}`;
 
@@ -881,7 +881,7 @@ export class IUBAgent {
       }
     } catch (err: any) {
       if (options?.signal?.aborted) {
-        return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+        return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
       }
       const nextModel = await this.cascadeModel(this.config.model, 'Provider failure auto-recovery');
       if (nextModel) {
@@ -891,7 +891,7 @@ export class IUBAgent {
           return await this.chatOpenAI(englishEnforcedInput, options);
         }
       }
-      return chalk.yellow('\n⏳ All free model tokens are currently exhausted across all providers. Check the renewal countdown above.');
+      return chalk.yellow('\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.');
     }
   }
 
@@ -933,7 +933,7 @@ export class IUBAgent {
     options?: { signal?: AbortSignal; images?: ImagePayload[] }
   ): Promise<string> {
     if (options?.signal?.aborted) {
-      return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+      return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
     }
 
     if (!this.geminiClient) {
@@ -967,7 +967,7 @@ export class IUBAgent {
 
     while (turnCount < maxTurns) {
       if (options?.signal?.aborted) {
-        return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+        return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
       }
 
       turnCount++;
@@ -996,7 +996,7 @@ export class IUBAgent {
       for (const candidateModel of modelCandidates) {
         if (options?.signal?.aborted) {
           spinner.stop();
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         let attempts = 0;
@@ -1005,7 +1005,7 @@ export class IUBAgent {
         while (attempts < maxModelAttempts) {
           if (options?.signal?.aborted) {
             spinner.stop();
-            return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+            return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
           }
 
           attempts++;
@@ -1052,7 +1052,7 @@ export class IUBAgent {
             if (timeoutId) clearTimeout(timeoutId);
             if (options?.signal?.aborted || err?.message === 'ABORTED_BY_USER') {
               spinner.stop();
-              return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+              return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
             }
 
             lastError = err;
@@ -1122,7 +1122,7 @@ export class IUBAgent {
             }
           }
           return chalk.red(
-            `\n✖ Gemini API Key Error: Your API key appears to be invalid or expired.\n` +
+            `\nGemini API Key Error: Your API key appears to be invalid or expired.\n` +
               `Please run ${chalk.yellow('/config')} to update your API key.`
           );
         } else {
@@ -1140,7 +1140,7 @@ export class IUBAgent {
             }
           }
           return chalk.yellow(
-            '\n⏳ All free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
+            '\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
           );
         }
       }
@@ -1207,7 +1207,7 @@ export class IUBAgent {
       const toolResponseParts: Array<any> = [];
       for (const call of functionCalls) {
         if (options?.signal?.aborted) {
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         const toolName = call.name;
@@ -1222,7 +1222,7 @@ export class IUBAgent {
         const output = await executeTool(toolName, toolArgs, this.mode, options?.signal);
 
         if (options?.signal?.aborted) {
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         toolResponseParts.push({
@@ -1252,7 +1252,7 @@ export class IUBAgent {
     options?: { signal?: AbortSignal; images?: ImagePayload[] }
   ): Promise<string> {
     if (options?.signal?.aborted) {
-      return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+      return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
     }
 
     if (!this.openAIClient || !this.config.apiKey) {
@@ -1300,7 +1300,7 @@ export class IUBAgent {
 
     while (turnCount < maxTurns) {
       if (options?.signal?.aborted) {
-        return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+        return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
       }
 
       turnCount++;
@@ -1324,7 +1324,7 @@ export class IUBAgent {
       while (cascadeAttempts < maxCascadeAttempts) {
         if (options?.signal?.aborted) {
           spinner.stop();
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         if (!this.openAIClient) {
@@ -1368,7 +1368,7 @@ export class IUBAgent {
           if (timeoutId) clearTimeout(timeoutId);
           if (options?.signal?.aborted || err?.message === 'ABORTED_BY_USER') {
             spinner.stop();
-            return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+            return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
           }
 
           const errMsg = err?.message || String(err);
@@ -1403,7 +1403,7 @@ export class IUBAgent {
               for (let rem = waitSec; rem > 0; rem--) {
                 if (options?.signal?.aborted) {
                   spinner.stop();
-                  return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+                  return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
                 }
                 const note = `Rolling rate limit cooldown (${rem}s) on [${this.config.model}] • Auto-resuming...`;
                 spinner.text = chalk.cyan(note);
@@ -1431,7 +1431,7 @@ export class IUBAgent {
               for (let rem = waitSec; rem > 0; rem--) {
                 if (options?.signal?.aborted) {
                   spinner.stop();
-                  return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+                  return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
                 }
                 const note = `Free Zero-Key cooldown (${rem}s) • Tip: /config for instant free Gemini key`;
                 spinner.text = chalk.cyan(note);
@@ -1476,13 +1476,13 @@ export class IUBAgent {
 
           if (lowerErr.includes('401') || lowerErr.includes('invalid_api_key') || lowerErr.includes('user not found')) {
             return chalk.red(
-              `\n✖ API Key Error: Authentication failed for ${this.config.provider}.\n` +
+              `\nAPI Key Error: Authentication failed for ${this.config.provider}.\n` +
                 `Please run ${chalk.yellow('/provider')} or ${chalk.yellow('/config')} to configure a valid key.`
             );
           }
 
           return chalk.yellow(
-            '\n⏳ All free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
+            '\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
           );
         }
       }
@@ -1490,7 +1490,7 @@ export class IUBAgent {
       spinner.stop();
 
       if (options?.signal?.aborted) {
-        return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+        return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
       }
 
       if (!completion) {
@@ -1503,7 +1503,7 @@ export class IUBAgent {
           }
         }
         return chalk.yellow(
-          '\n⏳ All free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
+          '\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.'
         );
       }
 
@@ -1561,7 +1561,7 @@ export class IUBAgent {
       // Process tool calls
       for (const toolCall of message.tool_calls) {
         if (options?.signal?.aborted) {
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         if (toolCall.type !== 'function') continue;
@@ -1594,7 +1594,7 @@ export class IUBAgent {
         const toolResult = await executeTool(fnName, fnArgs, this.mode, options?.signal);
 
         if (options?.signal?.aborted) {
-          return chalk.yellow('\n⏹️ Task cancelled by user (Escape key pressed).');
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
         this.openAIMessages.push({

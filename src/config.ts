@@ -424,7 +424,7 @@ function printSetupComplete(providerLabel: string, model: string, extraNote?: st
   const cols = process.stdout.columns || 80;
   const line = chalk.hex('#00A3FF')('─'.repeat(Math.max(40, Math.min(cols - 4, 68))));
   console.log(line);
-  console.log(chalk.green.bold('  ✔ Configuration saved!'));
+  console.log(chalk.green.bold('  Configuration saved!'));
   console.log(`  ${chalk.dim('Provider:')} ${chalk.bold.cyan(providerLabel)}`);
   console.log(`  ${chalk.dim('Model:')}    ${chalk.bold.hex('#00A3FF')(model)}`);
   if (extraNote) {
@@ -720,11 +720,11 @@ async function promptVerifiedApiKey(options: {
           options: [
             {
               value: 'zero_key',
-              label: `${chalk.hex('#00A3FF').bold('🚀 Continue with Free Zero-Key Starter AI')} ${chalk.green('(No Key Needed)')}`,
+              label: `${chalk.hex('#00A3FF').bold('Continue with Free Zero-Key Starter AI')} ${chalk.green('(No Key Needed)')}`,
               hint: 'Start right now without creating any API key (~45s cooldown/reply)',
             },
-            { value: 'retry', label: chalk.cyan('🔑 Go back and enter an API key') },
-            { value: 'cancel', label: chalk.gray('✖ Exit setup') },
+            { value: 'retry', label: chalk.cyan('Go back and enter an API key') },
+            { value: 'cancel', label: chalk.gray('Exit setup') },
           ],
         });
         if (fallbackPick === 'retry') continue;
@@ -746,28 +746,28 @@ async function promptVerifiedApiKey(options: {
     let modelOverride: string | undefined;
 
     if (detected === 'gemini' && activeProvider !== 'gemini') {
-      console.log(chalk.cyan('\nℹ️  Detected Google Gemini API key (AIza...) — routing cleanly to Google Gemini!\n'));
+      console.log(chalk.cyan('\n Detected Google Gemini API key (AIza...) — routing cleanly to Google Gemini!\n'));
       activeProvider = 'gemini';
       activeBaseURL = undefined;
       modelOverride = DEFAULT_MODELS.gemini;
     } else if (detected === 'openrouter' && activeProvider !== 'openrouter') {
-      console.log(chalk.cyan('\nℹ️  Detected OpenRouter API key (sk-or-...) — routing cleanly to OpenRouter!\n'));
+      console.log(chalk.cyan('\n Detected OpenRouter API key (sk-or-...) — routing cleanly to OpenRouter!\n'));
       activeProvider = 'openrouter';
       activeBaseURL = 'https://openrouter.ai/api/v1';
       modelOverride = DEFAULT_MODELS.openrouter;
     } else if (detected === 'groq' && (activeProvider !== 'custom' || !activeBaseURL?.includes('groq.com'))) {
-      console.log(chalk.cyan('\nℹ️  Detected Groq API key (gsk_...) — routing cleanly to Groq Cloud!\n'));
+      console.log(chalk.cyan('\n Detected Groq API key (gsk_...) — routing cleanly to Groq Cloud!\n'));
       activeProvider = 'custom';
       activeBaseURL = 'https://api.groq.com/openai/v1';
       modelOverride = 'llama-3.3-70b-versatile';
     }
 
-    process.stdout.write(chalk.cyan('  ⏳ Verifying API key...'));
+    process.stdout.write(chalk.cyan('  Verifying API key...'));
     const check = await verifyProviderCredentials(activeProvider, cleanedKey, activeBaseURL);
     process.stdout.write('\r\x1b[2K');
 
     if (check.ok) {
-      console.log(chalk.green('  ✔ API key verified!\n'));
+      console.log(chalk.green('  API key verified!\n'));
       return {
         provider: activeProvider,
         apiKey: cleanedKey,
@@ -776,21 +776,21 @@ async function promptVerifiedApiKey(options: {
       };
     }
 
-    console.log(chalk.red(`  ✖ Verification failed: ${check.error || 'Invalid API key.'}\n`));
+    console.log(chalk.red(`  Verification failed: ${check.error || 'Invalid API key.'}\n`));
     const action = await interactiveSelect<'retry' | 'save_anyway' | 'zero_key' | 'cancel'>({
       message: 'API key check failed. Choose next step:',
       options: [
-        { value: 'retry', label: chalk.cyan('🔑 Re-enter a different API key') },
+        { value: 'retry', label: chalk.cyan('Re-enter a different API key') },
         ...(options.allowZeroKeyFallback
           ? [
               {
                 value: 'zero_key' as const,
-                label: chalk.hex('#00A3FF')('🚀 Use Free Zero-Key Mode for now (No Key Needed)'),
+                label: chalk.hex('#00A3FF')('Use Free Zero-Key Mode for now (No Key Needed)'),
               },
             ]
           : []),
         { value: 'save_anyway', label: chalk.yellow('Save key anyway') },
-        { value: 'cancel', label: chalk.gray('✖ Cancel') },
+        { value: 'cancel', label: chalk.gray('Cancel') },
       ],
     });
 
@@ -902,7 +902,7 @@ export async function switchProviderInteractive(
         options: [
           {
             value: 'yes',
-            label: chalk.green(`✔ Use saved API key and model (${chalk.bold(saved.model)})`),
+            label: chalk.green(`Use saved API key and model (${chalk.bold(saved.model)})`),
           },
           {
             value: 'change_model',
@@ -1041,7 +1041,7 @@ export async function promptConfig(
       ? [
           {
             value: 'ollama' as const,
-            label: `${chalk.bold.hex('#00A3FF')('Local Ollama')} ${chalk.green(`[✔ Detected ${ollamaModels.length} local model(s) • No Key Needed]`)}`,
+            label: `${chalk.bold.hex('#00A3FF')('Local Ollama')} ${chalk.green(`[Detected ${ollamaModels.length} local model(s) • No Key Needed]`)}`,
             hint: `Ready now offline (${ollamaModels.slice(0, 3).join(', ')}) at localhost:11434`,
           },
         ]
@@ -1169,7 +1169,7 @@ export async function promptConfig(
     const keyChoice = await interactiveSelect<'saved' | 'new'>({
       message: `Saved API key found for ${PROVIDER_LABELS[provider]}.`,
       options: [
-        { value: 'saved', label: chalk.green('✔ Keep existing API key') },
+        { value: 'saved', label: chalk.green('Keep existing API key') },
         { value: 'new', label: chalk.yellow('Enter a new API key') },
       ],
     });

@@ -62,7 +62,7 @@ export function undoLastChange(): { success: boolean; message: string } {
         fs.unlinkSync(targetFile);
         return {
           success: true,
-          message: `✔ Undid creation of "${lastChange.filePath}" (file removed).`,
+          message: `Undid creation of "${lastChange.filePath}" (file removed).`,
         };
       }
     } else {
@@ -70,11 +70,11 @@ export function undoLastChange(): { success: boolean; message: string } {
         fs.writeFileSync(targetFile, lastChange.previousContent, 'utf8');
         return {
           success: true,
-          message: `✔ Reverted "${lastChange.filePath}" to its previous version (${lastChange.previousContent.length} bytes).`,
+          message: `Reverted "${lastChange.filePath}" to its previous version (${lastChange.previousContent.length} bytes).`,
         };
       }
     }
-    return { success: true, message: `✔ Reverted "${lastChange.filePath}".` };
+    return { success: true, message: `Reverted "${lastChange.filePath}".` };
   } catch (err: any) {
     return { success: false, message: `Failed to undo "${lastChange.filePath}": ${err.message}` };
   }
@@ -205,7 +205,7 @@ export async function writeFile(filePath: string, content: string, signal?: Abor
       return `Action rejected: User declined writing to "${filePath}".`;
     } else if (decision === 'all') {
       safetySession.autoApproveAll = true;
-      console.log(chalk.cyan('⚡ Auto-approve enabled for this session.'));
+      console.log(chalk.cyan('Auto-approve enabled for this session.'));
     }
   }
 
@@ -307,7 +307,7 @@ export async function editFile(
       return `Action rejected: User declined editing "${filePath}".`;
     } else if (decision === 'all') {
       safetySession.autoApproveAll = true;
-      console.log(chalk.cyan('⚡ Auto-approve enabled for this session.'));
+      console.log(chalk.cyan('Auto-approve enabled for this session.'));
     }
   }
 
@@ -335,7 +335,7 @@ export async function editFile(
 
   const beforeLines = effectiveTarget.split('\n').length;
   const afterLines = effectiveReplacement.split('\n').length;
-  return `✔ Successfully edited "${filePath}" (surgically replaced ${beforeLines} line(s) with ${afterLines} line(s)).`;
+  return `Successfully edited "${filePath}" (surgically replaced ${beforeLines} line(s) with ${afterLines} line(s)).`;
 }
 
 // Mutex to ensure commands execute strictly ONE BY ONE sequentially
@@ -419,7 +419,7 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
       return `Action rejected: User cancelled execution of command "${command}".`;
     } else if (decision === 'all') {
       safetySession.autoApproveAll = true;
-      console.log(chalk.cyan('⚡ Auto-approve enabled for this session.'));
+      console.log(chalk.cyan('Auto-approve enabled for this session.'));
     }
   }
 
@@ -433,7 +433,7 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
   if (subCommands.length > 1) {
     console.log(
       chalk.cyan(
-        `\n⚡ Continuous Execution: Running ${chalk.bold(subCommands.length)} commands strictly one by one...`
+        `\nContinuous Execution: Running ${chalk.bold(subCommands.length)} commands strictly one by one...`
       )
     );
 
@@ -444,13 +444,13 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
       }
 
       const sub = subCommands[i];
-      console.log(chalk.cyan(`\n⚡ Step ${i + 1}/${subCommands.length}: ${chalk.bold(sub)}`));
+      console.log(chalk.cyan(`\nStep ${i + 1}/${subCommands.length}: ${chalk.bold(sub)}`));
       const res = await runActualProcess(sub, signal);
       stepResults.push(`[Step ${i + 1}/${subCommands.length}: ${sub}]\n${res}`);
 
       // If a step fails, abort subsequent steps immediately so the model can self-heal without wasting time
       if (res.includes('Command exited with status code') || res.includes('Command timed out') || res.includes('failed to start')) {
-        console.log(chalk.yellow(`\n⚠️ Step ${i + 1} exited with error. Stopping subsequent steps immediately.`));
+        console.log(chalk.yellow(`\nStep ${i + 1} exited with error. Stopping subsequent steps immediately.`));
         break;
       }
     }
@@ -458,7 +458,7 @@ async function executeSequentialCommand(command: string, signal?: AbortSignal): 
     return stepResults.join('\n\n');
   }
 
-  console.log(chalk.cyan(`\n⚡ Running command: ${chalk.bold(command)}...`));
+  console.log(chalk.cyan(`\nRunning command: ${chalk.bold(command)}...`));
   return await runActualProcess(command, signal);
 }
 
@@ -475,32 +475,32 @@ function diagnoseCommandFailure(command: string, stdout: string, stderr: string,
     const pkg = nodeModuleMatch[1].startsWith('@')
       ? nodeModuleMatch[1].split('/').slice(0, 2).join('/')
       : nodeModuleMatch[1].split('/')[0];
-    return `💡 IUB CLI Smart Diagnostic: Missing npm package "${pkg}" detected. Recommendation: run "npm install ${pkg}" to install it.`;
+    return `IUB CLI Smart Diagnostic: Missing npm package "${pkg}" detected. Recommendation: run "npm install ${pkg}" to install it.`;
   }
 
   // 2. Missing Python package
   const pyModuleMatch = combined.match(/(?:ModuleNotFoundError: No module named|ImportError: cannot import name) ['"]([^'"]+)['"]/i);
   if (pyModuleMatch && pyModuleMatch[1]) {
-    return `💡 IUB CLI Smart Diagnostic: Missing Python package "${pyModuleMatch[1]}" detected. Recommendation: run "pip install ${pyModuleMatch[1]}".`;
+    return `IUB CLI Smart Diagnostic: Missing Python package "${pyModuleMatch[1]}" detected. Recommendation: run "pip install ${pyModuleMatch[1]}".`;
   }
 
   // 3. Port collision (EADDRINUSE)
   const portMatch = combined.match(/EADDRINUSE.*?[:\s](\d{4,5})\b/i) || combined.match(/port (\d{4,5}) is already in use/i);
   if (portMatch) {
-    return `💡 IUB CLI Smart Diagnostic: Port ${portMatch[1]} is already occupied. Recommendation: use a different port (e.g. PORT=${parseInt(portMatch[1], 10) + 1}) or terminate the existing process.`;
+    return `IUB CLI Smart Diagnostic: Port ${portMatch[1]} is already occupied. Recommendation: use a different port (e.g. PORT=${parseInt(portMatch[1], 10) + 1}) or terminate the existing process.`;
   }
 
   // 4. TypeScript compilation error
   const tsErrorMatch = combined.match(/error TS(\d+):/i);
   if (tsErrorMatch) {
-    return `💡 IUB CLI Smart Diagnostic: TypeScript compilation error (TS${tsErrorMatch[1]}) detected. Inspect the file and line number shown in the error log above and use edit_file or write_file to fix it.`;
+    return `IUB CLI Smart Diagnostic: TypeScript compilation error (TS${tsErrorMatch[1]}) detected. Inspect the file and line number shown in the error log above and use edit_file or write_file to fix it.`;
   }
 
   // 5. Git upstream missing
   if (combined.includes('has no upstream branch') || combined.includes('set-upstream')) {
     const branchMatch = combined.match(/git push --set-upstream origin ([^\s]+)/i);
     const branchName = branchMatch ? branchMatch[1] : 'main';
-    return `💡 IUB CLI Smart Diagnostic: Git remote branch has no upstream. Recommendation: run "git push -u origin ${branchName}".`;
+    return `IUB CLI Smart Diagnostic: Git remote branch has no upstream. Recommendation: run "git push -u origin ${branchName}".`;
   }
 
   return null;
@@ -860,7 +860,7 @@ export async function executeTool(
 
   // If in PLAN mode, block write, edit, and command execution
   if (mode === 'plan' && (name === 'write_file' || name === 'edit_file' || name === 'run_command')) {
-    const errorMsg = `⚠️ Action blocked: IUB CLI is currently in PLAN MODE. File modifications and terminal commands are disabled. Switch to BUILD mode (/build or /mode) to execute changes.`;
+    const errorMsg = `Action blocked: IUB CLI is currently in PLAN MODE. File modifications and terminal commands are disabled. Switch to BUILD mode (/build or /mode) to execute changes.`;
     renderToolCall(name, args);
     renderToolResult(name, errorMsg, true);
     return errorMsg;

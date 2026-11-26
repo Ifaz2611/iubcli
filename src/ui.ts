@@ -47,7 +47,7 @@ export function printBanner(provider?: string, model?: string, workspace?: strin
 
   console.log(asciiArt);
   console.log(
-    `  ${chalk.bgHex('#003087').white.bold(' 🎓 IUB CLI v2.0 ')} ${chalk.hex('#00A3FF')(
+    `  ${chalk.bgHex('#003087').white.bold(' IUB CLI v2.0 ')} ${chalk.hex('#00A3FF')(
       'Next-Gen Autonomous BYOK Terminal Coding Agent'
     )}`
   );
@@ -83,15 +83,15 @@ export function printBanner(provider?: string, model?: string, workspace?: strin
 export function renderStatusBar(mode: 'build' | 'plan', model: string, provider?: string): void {
   const isBuild = mode === 'build';
   const modeBadge = isBuild
-    ? chalk.bgHex('#00C853').black.bold(' ⚡ BUILD MODE ')
-    : chalk.bgHex('#FFB300').black.bold(' 📋 PLAN MODE ');
+    ? chalk.bgHex('#00C853').black.bold(' BUILD MODE ')
+    : chalk.bgHex('#FFB300').black.bold(' PLAN MODE ');
 
   const modeText = isBuild
     ? chalk.green.bold('Autonomous Coder')
     : chalk.yellow.bold('Architect (Read-Only)');
 
-  const modelBadge = chalk.bgHex('#1A237E').white.bold(` 🤖 ${model} `);
-  const cascadeBadge = chalk.bgHex('#002B5C').hex('#00A3FF').bold(' 🔄 Auto-Cascade Active ');
+  const modelBadge = chalk.bgHex('#1A237E').white.bold(` ${model} `);
+  const cascadeBadge = chalk.bgHex('#002B5C').hex('#00A3FF').bold(' Auto-Cascade Active ');
   const helpHint = chalk.dim('• /mode • /agent • /limits • /help');
 
   console.log(`\n${modeBadge} ${modeText}  ${modelBadge}  ${cascadeBadge}  ${helpHint}`);
@@ -107,12 +107,12 @@ export function renderCascadeNotice(fromModel: string, toModel: string, reason: 
   process.stdout.write('\r\x1b[2K\n');
   console.log(border);
   console.log(
-    chalk.bgHex('#FF9900').black.bold(' 🔄 AUTO-CASCADE ACTIVATED ') +
+    chalk.bgHex('#FF9900').black.bold(' AUTO-CASCADE ACTIVATED ') +
       ' ' +
       chalk.white.bold(`Token / Rate limit reached on: ${chalk.yellow(fromModel)}`)
   );
   console.log(
-    chalk.hex('#00A3FF').bold('✔ Seamlessly continuing with: ') +
+    chalk.hex('#00A3FF').bold('Seamlessly continuing with: ') +
       chalk.bold.cyan(toModel) +
       chalk.gray(` (${reason})`)
   );
@@ -130,12 +130,12 @@ export function renderModelExplorationNotice(model: string, provider: string, te
   process.stdout.write('\r\x1b[2K\n');
   console.log(border);
   console.log(
-    chalk.bgHex('#002B5C').hex('#00A3FF').bold(' 🔍 MODEL EXPLORER: FREE TOKENS DISCOVERED ') +
+    chalk.bgHex('#002B5C').hex('#00A3FF').bold(' MODEL EXPLORER: FREE TOKENS DISCOVERED ') +
       ' ' +
       chalk.white.bold(`Scanned ${testedCount} model(s)`)
   );
   console.log(
-    chalk.green.bold('✔ Selected Active Model: ') +
+    chalk.green.bold('Selected Active Model: ') +
       chalk.bold.cyan(model) +
       chalk.gray(` [${provider.toUpperCase()}]`)
   );
@@ -153,7 +153,7 @@ export function renderRollingRateLimitNotice(model: string, seconds: number, rea
   process.stdout.write('\r\x1b[2K\n');
   console.log(border);
   console.log(
-    chalk.bgHex('#1E40AF').white.bold(' ⏳ ROLLING RATE LIMIT COOLDOWN (NEVER-STOP) ') +
+    chalk.bgHex('#1E40AF').white.bold(' ROLLING RATE LIMIT COOLDOWN (NEVER-STOP) ') +
       ' ' +
       chalk.white.bold(`[${chalk.yellow(model)}]`)
   );
@@ -172,7 +172,7 @@ export async function askToolConfirmation(
   toolName: 'write_file' | 'run_command' | 'edit_file',
   summary: string
 ): Promise<'yes' | 'no' | 'all'> {
-  console.log('\n' + chalk.bgHex('#FF9900').black.bold(' ⚠️  SAFETY CONFIRMATION '));
+  console.log('\n' + chalk.bgHex('#FF9900').black.bold('  SAFETY CONFIRMATION '));
   console.log(
     `${chalk.gray('Tool:')} ${chalk.cyan.bold(toolName)}`
   );
@@ -181,9 +181,9 @@ export async function askToolConfirmation(
   const choice = await interactiveSelect<'yes' | 'no' | 'all'>({
     message: 'Allow IUB CLI to execute this action?',
     options: [
-      { value: 'yes', label: chalk.green('✔ Yes, execute this action') },
-      { value: 'all', label: chalk.cyan('⚡ Yes to ALL actions (Auto-approve for this session)') },
-      { value: 'no', label: chalk.red('✖ No, cancel / reject this action') },
+      { value: 'yes', label: chalk.green('Yes, execute this action') },
+      { value: 'all', label: chalk.cyan('Yes to ALL actions (Auto-approve for this session)') },
+      { value: 'no', label: chalk.red('No, cancel / reject this action') },
     ],
   });
 
@@ -198,7 +198,7 @@ export async function askToolConfirmation(
  * Render tool call badge.
  */
 export function renderToolCall(toolName: string, args: Record<string, any>): void {
-  const badge = chalk.bgHex('#0047AB').white.bold(` 🛠️  TOOL: ${toolName} `);
+  const badge = chalk.bgHex('#0047AB').white.bold(`  TOOL: ${toolName} `);
   console.log(`\n${badge}`);
   if (toolName === 'write_file') {
     console.log(chalk.gray(`Path: `) + chalk.cyan(args.filePath));
@@ -224,11 +224,11 @@ export function renderToolCall(toolName: string, args: Record<string, any>): voi
  */
 export function renderToolResult(toolName: string, result: string, isError = false): void {
   if (isError) {
-    console.log(chalk.red(`✖ [${toolName} error]: ${result.trim()}`));
+    console.log(chalk.red(`[${toolName} error]: ${result.trim()}`));
   } else {
     // Truncate overly long result previews in UI
     const preview = result.length > 300 ? result.slice(0, 300) + '...\n' + chalk.dim(`(truncated ${result.length} chars)`) : result;
-    console.log(chalk.green(`✔ [${toolName} completed]:`));
+    console.log(chalk.green(`[${toolName} completed]:`));
     console.log(chalk.dim(preview.trim()));
   }
 }
@@ -252,13 +252,13 @@ export function renderPriorityTaskBanner(task: string, model: string, mode: 'bui
   const border = chalk.hex('#00A3FF')('═'.repeat(78));
   console.log('\n' + border);
   console.log(
-    chalk.bgHex('#00A3FF').black.bold(' ⚡ [PRIORITY TASK DISPATCH] ') +
+    chalk.bgHex('#00A3FF').black.bold(' [PRIORITY TASK DISPATCH] ') +
       ' ' +
       chalk.white.bold('Executing specific priority task first (Antigravity mode)')
   );
   console.log(
     `  ${chalk.gray('Selected Model:')} ${chalk.bold.hex('#00A3FF')(model)}  ` +
-      `${chalk.gray('Mode:')} ${mode === 'build' ? chalk.green.bold('⚡ BUILD') : chalk.yellow.bold('📋 PLAN')}  ` +
+      `${chalk.gray('Mode:')} ${mode === 'build' ? chalk.green.bold('BUILD') : chalk.yellow.bold('PLAN')}  ` +
       `${chalk.gray('(Press')} ${chalk.yellow.bold('Esc')} ${chalk.gray('anytime to stop)')}`
   );
   console.log(`  ${chalk.gray('Task:')} ${chalk.cyan.bold(task)}`);
@@ -271,7 +271,7 @@ export function renderPriorityTaskBanner(task: string, model: string, mode: 'bui
 export function renderInterruptedNotice(): void {
   console.log(
     '\n' +
-      chalk.bgHex('#FF3366').white.bold(' ⏹️  EXECUTION STOPPED ') +
+      chalk.bgHex('#FF3366').white.bold('  EXECUTION STOPPED ') +
       ' ' +
       chalk.yellow.bold('Model stopped working by user (Escape key pressed).') +
       '\n' +
@@ -285,16 +285,16 @@ export function renderInterruptedNotice(): void {
 export function renderDoctorReport(checks: { name: string; status: 'ok' | 'warn' | 'error'; detail: string }[]): void {
   const border = chalk.hex('#00A3FF')('═'.repeat(74));
   console.log('\n' + border);
-  console.log(chalk.bgHex('#003087').white.bold(' 🩺 IUB CLI SYSTEM DOCTOR (SYSTEM HEALTH REPORT) '));
+  console.log(chalk.bgHex('#003087').white.bold(' IUB CLI SYSTEM DOCTOR (SYSTEM HEALTH REPORT) '));
   console.log(chalk.gray('Comprehensive diagnostic check of your agent environment:\n'));
 
   for (const c of checks) {
     const symbol =
       c.status === 'ok'
-        ? chalk.green.bold('  ✔ [PASS]')
+        ? chalk.green.bold('  [PASS]')
         : c.status === 'warn'
-        ? chalk.yellow.bold('  ⚠️  [WARN]')
-        : chalk.red.bold('  ✖ [FAIL]');
+        ? chalk.yellow.bold('   [WARN]')
+        : chalk.red.bold('  [FAIL]');
     console.log(`${symbol} ${chalk.white.bold(c.name)}: ${chalk.gray(c.detail)}`);
   }
   console.log(border + '\n');
@@ -316,11 +316,11 @@ export function renderSessionStats(stats: {
 }): void {
   const border = chalk.hex('#00A3FF')('─'.repeat(70));
   console.log('\n' + border);
-  console.log(chalk.bgHex('#1A237E').white.bold(' 📊 LIVE SESSION INTELLIGENCE & SAVINGS (OpenCode Style) '));
+  console.log(chalk.bgHex('#1A237E').white.bold(' LIVE SESSION INTELLIGENCE & SAVINGS (OpenCode Style) '));
   console.log(chalk.dim('─'.repeat(70)));
   console.log(`  ${chalk.gray('Active Provider:')}    ${chalk.bold.cyan(stats.provider)}`);
   console.log(`  ${chalk.gray('Selected Model:')}     ${chalk.bold.green(stats.model)}`);
-  console.log(`  ${chalk.gray('Current Mode:')}       ${stats.mode === 'build' ? chalk.green.bold('⚡ BUILD') : chalk.yellow.bold('📋 PLAN')}`);
+  console.log(`  ${chalk.gray('Current Mode:')}       ${stats.mode === 'build' ? chalk.green.bold('BUILD') : chalk.yellow.bold('PLAN')}`);
   console.log(`  ${chalk.gray('Total LLM Calls:')}    ${chalk.bold.yellow(stats.totalRequests)} calls`);
   console.log(`  ${chalk.gray('Total Tokens Used:')}  ${chalk.bold.white(stats.totalTokens.toLocaleString())} tokens ${chalk.dim(`(Prompt: ${stats.promptTokens.toLocaleString()} • Completion: ${stats.completionTokens.toLocaleString()})`)}`);
   console.log(`  ${chalk.gray('Estimated Savings:')}  ${chalk.bold.hex('#00A3FF')(`$${stats.estimatedCostSavedUsd.toFixed(3)} USD`)} ${chalk.dim('(vs commercial GPT-4 / Opus)')}`);
@@ -332,11 +332,11 @@ export function renderSessionStats(stats: {
  * Show a styled help manual.
  */
 export function showHelp(): void {
-  console.log('\n' + chalk.bold.hex('#00A3FF')('🎓 IUB CLI Help & Usage Guide'));
+  console.log('\n' + chalk.bold.hex('#00A3FF')('IUB CLI Help & Usage Guide'));
   console.log(chalk.dim('─'.repeat(70)));
   console.log(`${chalk.yellow.bold('Agent Modes (OpenCode Style):')}`);
-  console.log(`  ${chalk.green.bold('⚡ BUILD Mode')}   - Autonomous full-stack coder. Can create/edit files & run terminal commands.`);
-  console.log(`  ${chalk.yellow.bold('📋 PLAN Mode')}    - Senior Architect. Read-only codebase investigation & step-by-step planning.`);
+  console.log(`  ${chalk.green.bold('BUILD Mode')}   - Autonomous full-stack coder. Can create/edit files & run terminal commands.`);
+  console.log(`  ${chalk.yellow.bold('PLAN Mode')}    - Senior Architect. Read-only codebase investigation & step-by-step planning.`);
   console.log(`\n${chalk.yellow.bold('Slash Commands in Chat (OpenCode & Antigravity Style):')}`);
   console.log(`  ${chalk.cyan('/explore')}      - Explore all models and auto-select the model with active free tokens (alias: /find-model, /scan)`);
   console.log(`  ${chalk.cyan('/image')}        - Paste screenshot from system clipboard or stage an image (alias: /screenshot, /pic)`);
@@ -395,7 +395,7 @@ export function showHelp(): void {
   console.log(`  • ${chalk.green('English:')}  "Build a full-stack Next.js portfolio website"`);
   console.log(`  • ${chalk.green('Banglish:')} "Express diye ekta REST API banaw auth soho"`);
   console.log(`  • ${chalk.green('Bangla:')}   "Ekta React counter component baniye daw" (Input accepted, instructions in English)`);
-  console.log(`\n  ${chalk.gray('Lead Developer & Creator:')} ${chalk.hex('#00A3FF').bold('Ifaz MD Zahin')} ${chalk.dim('(https://github.com/ifazmdzahin)')}`);
+  console.log(`\n  ${chalk.gray('Lead Developer & Creator:')} ${chalk.hex('#00A3FF').bold('Ifaz MD Zahin')} ${chalk.dim('(https://github.com/Ifaz2611)')}`);
   console.log(chalk.dim('─'.repeat(70)) + '\n');
 }
 
@@ -404,23 +404,23 @@ export function showHelp(): void {
  */
 export function showFreeApiKeyGuide(): void {
   const line = chalk.dim('─'.repeat(78));
-  console.log('\n' + chalk.bgHex('#003087').white.bold(' 🔑 FREE API KEYS & MODELS GUIDE (100% Free Coding Tier) '));
+  console.log('\n' + chalk.bgHex('#003087').white.bold(' FREE API KEYS & MODELS GUIDE (100% Free Coding Tier) '));
   console.log(chalk.gray('Get free API keys with generous quotas for IUB CLI - no credit card required!\n'));
 
   // 1. Google Gemini
-  console.log(chalk.bold.hex('#00A3FF')('1. Google Gemini (Google AI Studio) - 🌟 RECOMMENDED'));
+  console.log(chalk.bold.hex('#00A3FF')('1. Google Gemini (Google AI Studio) - RECOMMENDED'));
   console.log(`   ${chalk.gray('Direct Link:')} ${chalk.bold.underline.cyan('https://aistudio.google.com/apikey')}`);
-  console.log(`   ${chalk.gray('Steps:')} Sign in with Google ➔ Click "${chalk.white('Create API Key')}" ➔ Copy key.`);
-  console.log(`   ${chalk.gray('Best Free Model:')} ${chalk.bold.yellow('gemini-2.0-flash')} (🌟 100% Free, flagship speed & 1,500 RPD)`);
+  console.log(`   ${chalk.gray('Steps:')} Sign in with Google -> Click "${chalk.white('Create API Key')}" -> Copy key.`);
+  console.log(`   ${chalk.gray('Best Free Model:')} ${chalk.bold.yellow('gemini-2.0-flash')} (100% Free, flagship speed & 1,500 RPD)`);
   console.log(`   ${chalk.gray('Alternative Free Models:')} ${chalk.white('gemini-2.0-flash-lite, gemini-2.5-flash, gemini-1.5-flash')}`);
   console.log(`   ${chalk.gray('Quota:')} Free tier gives 15 Requests/min & 1,500 Requests/day for free!\n`);
 
   // 2. OpenRouter Free Models
   console.log(chalk.bold.hex('#00A3FF')('2. OpenRouter (Access 14+ 100% Free Frontier Models)'));
   console.log(`   ${chalk.gray('Direct Link:')} ${chalk.bold.underline.cyan('https://openrouter.ai/keys')}`);
-  console.log(`   ${chalk.gray('Steps:')} Sign in with GitHub/Google ➔ Click "${chalk.white('Create Key')}" ➔ Copy key.`);
+  console.log(`   ${chalk.gray('Steps:')} Sign in with GitHub/Google -> Click "${chalk.white('Create Key')}" -> Copy key.`);
   console.log(`   ${chalk.gray('Top Free Agent Models (Zero Cost):')}`);
-  console.log(`     • ${chalk.yellow('openrouter/free')} (🌟 Auto Best Free Model - Zero downtime)`);
+  console.log(`     • ${chalk.yellow('openrouter/free')} (Auto Best Free Model - Zero downtime)`);
   console.log(`     • ${chalk.yellow('particle-ai/particle-1:free')} (1 Million token context agentic coding model)`);
   console.log(`     • ${chalk.yellow('nvidia/nemotron-3-ultra-550b-a55b:free')} (Massive 550B frontier model, 1M context)`);
   console.log(`     • ${chalk.yellow('google/gemma-4-31b-it:free')} (Google DeepMind 31B code instruction model)`);
@@ -431,9 +431,9 @@ export function showFreeApiKeyGuide(): void {
   console.log(`   ${chalk.gray('Quota:')} 100% Free with zero payment or credit card needed!\n`);
 
   // 3. DeepSeek Platform
-  console.log(chalk.bold.hex('#00D2FF')('3. DeepSeek Platform (5,000,000 Free Tokens - 🌟 SOTA Coding)'));
+  console.log(chalk.bold.hex('#00D2FF')('3. DeepSeek Platform (5,000,000 Free Tokens - SOTA Coding)'));
   console.log(`   ${chalk.gray('Direct Link:')} ${chalk.bold.underline.cyan('https://platform.deepseek.com')}`);
-  console.log(`   ${chalk.gray('Steps:')} Sign up with Email/Google ➔ Create API Key ➔ 5 Million free tokens credited.`);
+  console.log(`   ${chalk.gray('Steps:')} Sign up with Email/Google -> Create API Key -> 5 Million free tokens credited.`);
   console.log(`   ${chalk.gray('In IUB CLI:')} Select "${chalk.white('Custom OpenAI-Compatible')}"`);
   console.log(`   ${chalk.gray('Base URL:')} ${chalk.cyan('https://api.deepseek.com/v1')}`);
   console.log(`   ${chalk.gray('Models:')} ${chalk.yellow('deepseek-chat')} (V3 Coding), ${chalk.yellow('deepseek-reasoner')} (R1 Chain-of-Thought)`);
@@ -463,7 +463,7 @@ export function showFreeApiKeyGuide(): void {
   console.log(`   ${chalk.gray('API Key:')} Any text (e.g. ${chalk.white('ollama')})\n`);
 
   console.log(line);
-  console.log(chalk.cyan(`💡 Tip: Use ${chalk.yellow.bold('/provider')} or ${chalk.yellow.bold('/config')} in chat to switch anytime!\n`));
+  console.log(chalk.cyan(`Tip: Use ${chalk.yellow.bold('/provider')} or ${chalk.yellow.bold('/config')} in chat to switch anytime!\n`));
 }
 
 /**
@@ -471,7 +471,7 @@ export function showFreeApiKeyGuide(): void {
  */
 export function showTokenLimitsGuide(): void {
   const line = chalk.dim('─'.repeat(88));
-  console.log('\n' + chalk.bgHex('#0047AB').white.bold(' 📊 COMPLETE TOKEN LIMITS & RATE LIMITS GUIDE (ALL MODELS) '));
+  console.log('\n' + chalk.bgHex('#0047AB').white.bold(' COMPLETE TOKEN LIMITS & RATE LIMITS GUIDE (ALL MODELS) '));
   console.log(chalk.gray('Exact context window tokens, rate limits (RPM/TPM), and daily quotas for all 83+ models in IUB CLI:\n'));
 
   // 1. Google Gemini Suite
@@ -486,7 +486,7 @@ export function showTokenLimitsGuide(): void {
   console.log(chalk.dim('│') + chalk.green(' gemini-2.0-flash       ') + chalk.dim('│') + chalk.white(' 1,048,576 toks ') + chalk.dim('│') + chalk.yellow(' 15 RPM       ') + chalk.dim('│') + chalk.cyan(' 1,000,000 TPM') + chalk.dim('│') + chalk.green(' Auto->3.5    ') + chalk.dim('│'));
   console.log(chalk.dim('│') + chalk.green(' gemini-1.5-pro         ') + chalk.dim('│') + chalk.cyan(' 2,097,152 toks ') + chalk.dim('│') + chalk.yellow(' 5 RPM        ') + chalk.dim('│') + chalk.cyan(' 1,000,000 TPM') + chalk.dim('│') + chalk.yellow(' 50 RPD       ') + chalk.dim('│'));
   console.log(chalk.dim('└────────────────────────┴────────────────┴──────────────┴──────────────┴──────────────┘'));
-  console.log(chalk.gray('ℹ️ Daily resets at 00:00 UTC. Gemini 3.5 Flash Lite is the primary autonomous coding model.\n'));
+  console.log(chalk.gray('Daily resets at 00:00 UTC. Gemini 3.5 Flash Lite is the primary autonomous coding model.\n'));
 
   // 2. OpenRouter 100% Free Suite
   console.log(chalk.bold.hex('#00A3FF')('2. 100% Free OpenRouter Models (Zero-Plan Coding Fleet)'));
@@ -512,7 +512,7 @@ export function showTokenLimitsGuide(): void {
   console.log(chalk.dim('│') + chalk.green(' liquid/lfm-3-1.7b:free                         ') + chalk.dim('│') + chalk.white(' 32,768 toks    ') + chalk.dim('│') + chalk.yellow(' 20 RPM        ') + chalk.dim('│') + chalk.green(' Edge Free    ') + chalk.dim('│'));
   console.log(chalk.dim('│') + chalk.green(' recursive/flint-v1.0:free                      ') + chalk.dim('│') + chalk.white(' 131,072 toks   ') + chalk.dim('│') + chalk.yellow(' 20 RPM        ') + chalk.dim('│') + chalk.green(' 128K Free    ') + chalk.dim('│'));
   console.log(chalk.dim('└────────────────────────────────────────────────┴────────────────┴──────────────┴──────────────┘'));
-  console.log(chalk.gray('ℹ️ 100% Free on OpenRouter with zero credit card required. Free tier rate limits reset daily.\n'));
+  console.log(chalk.gray('100% Free on OpenRouter with zero credit card required. Free tier rate limits reset daily.\n'));
 
   // 3. DeepSeek Platform Frontier Models
   console.log(chalk.bold.hex('#00A3FF')('3. DeepSeek Platform Models (platform.deepseek.com)'));
@@ -531,7 +531,7 @@ export function showTokenLimitsGuide(): void {
   console.log(chalk.dim('│') + chalk.green(' mixtral-8x7b-32768           ') + chalk.dim('│') + chalk.white(' 32,768 toks    ') + chalk.dim('│') + chalk.yellow(' 30 RPM       ') + chalk.dim('│') + chalk.cyan(' 5,000 TPM    ') + chalk.dim('│') + chalk.green(' 14,400 RPD   ') + chalk.dim('│'));
   console.log(chalk.dim('│') + chalk.green(' gemma2-9b-it                 ') + chalk.dim('│') + chalk.white(' 8,192 toks     ') + chalk.dim('│') + chalk.yellow(' 30 RPM       ') + chalk.dim('│') + chalk.cyan(' 15,000 TPM   ') + chalk.dim('│') + chalk.green(' 14,400 RPD   ') + chalk.dim('│'));
   console.log(chalk.dim('└──────────────────────────────┴────────────────┴──────────────┴──────────────┴──────────────┘'));
-  console.log(chalk.gray('ℹ️ Groq delivers 500+ tokens/second inference with a generous 14,400 requests/day free quota!\n'));
+  console.log(chalk.gray('Groq delivers 500+ tokens/second inference with a generous 14,400 requests/day free quota!\n'));
 
   // 5. Frontier Flagship Coding Agents (BYOK)
   console.log(chalk.bold.hex('#00A3FF')('5. Frontier Flagship Coding Agents (OpenRouter / BYOK)'));
@@ -549,7 +549,7 @@ export function showTokenLimitsGuide(): void {
   console.log(line);
   console.log(
     chalk.cyan(
-      `💡 Switch Model Anytime: Run ${chalk.yellow.bold('/agent')} or ${chalk.yellow.bold('/model [name]')} | Check Token Renewal Countdown: ${chalk.yellow.bold('/renewal')}\n`
+      `Switch Model Anytime: Run ${chalk.yellow.bold('/agent')} or ${chalk.yellow.bold('/model [name]')} | Check Token Renewal Countdown: ${chalk.yellow.bold('/renewal')}\n`
     )
   );
 }
@@ -560,7 +560,7 @@ export function showTokenLimitsGuide(): void {
 export function renderGitStatus(): void {
   const border = chalk.hex('#00A3FF')('─'.repeat(70));
   console.log('\n' + border);
-  console.log(chalk.bgHex('#003087').white.bold(' 🌿 GIT REPOSITORY STATUS '));
+  console.log(chalk.bgHex('#003087').white.bold(' GIT REPOSITORY STATUS '));
   console.log(chalk.dim('─'.repeat(70)));
 
   try {
@@ -582,7 +582,7 @@ export function renderGitStatus(): void {
     console.log(`  ${chalk.gray('Current Branch:')}  ${chalk.cyan.bold(branch || 'Detached / Unknown')}`);
 
     if (status.length === 0) {
-      console.log(`  ${chalk.gray('Working Tree:')}   ${chalk.green('✔ Working directory is clean')}`);
+      console.log(`  ${chalk.gray('Working Tree:')}   ${chalk.green('Working directory is clean')}`);
     } else {
       const statusLines = status.split('\n');
       console.log(`  ${chalk.gray('Modified Files:')} ${chalk.yellow(statusLines.length)} file(s):`);
@@ -616,7 +616,7 @@ export function renderGitStatus(): void {
 export function renderDirectoryTree(dirPath = '.', maxDepth = 2): void {
   const border = chalk.hex('#00A3FF')('─'.repeat(70));
   console.log('\n' + border);
-  console.log(chalk.bgHex('#1A237E').white.bold(` 📂 WORKSPACE TREE: ${path.resolve(dirPath)} `));
+  console.log(chalk.bgHex('#1A237E').white.bold(` WORKSPACE TREE: ${path.resolve(dirPath)} `));
   console.log(chalk.dim('─'.repeat(70)));
 
   const IGNORED = new Set(['node_modules', '.git', '.next', 'dist', 'build', '.cache', 'coverage']);
@@ -663,7 +663,7 @@ export function showAbout(): void {
   const accentGold = chalk.hex('#FFC72C').bold;
   const dim = chalk.gray;
 
-  console.log('\n' + chalk.bgHex('#003087').white.bold(' 🎓 ABOUT IUB CLI ') + '\n');
+  console.log('\n' + chalk.bgHex('#003087').white.bold(' ABOUT IUB CLI ') + '\n');
 
   console.log(
     brand('  ██╗ ██╗   ██╗ ██████╗   ██████╗ ██╗      ██╗\n') +
@@ -680,13 +680,13 @@ export function showAbout(): void {
   console.log(`  ${chalk.bold.white('Architecture:')}         Dual-Engine (BUILD & PLAN Modes) with Workspace Mesh RPC`);
   console.log(chalk.dim('─'.repeat(74)));
 
-  console.log(`\n  ${chalk.bold.hex('#00A3FF')('👨‍💻 CREATOR & LEAD DEVELOPER:')}`);
+  console.log(`\n  ${chalk.bold.hex('#00A3FF')('CREATOR & LEAD DEVELOPER:')}`);
   console.log(`  ${chalk.bold.white('Developer Name:')}       ${chalk.bold.hex('#00A3FF')('Ifaz MD Zahin')}`);
   console.log(
-    `  ${chalk.bold.white('GitHub Account:')}       ${chalk.bold.underline.cyan('https://github.com/ifazmdzahin')} ${chalk.dim('(@ifazmdzahin)')}`
+    `  ${chalk.bold.white('GitHub Account:')}       ${chalk.bold.underline.cyan('https://github.com/Ifaz2611')} ${chalk.dim('(@Ifaz2611)')}`
   );
   console.log(
-    `  ${chalk.bold.white('GitHub Repository:')}    ${chalk.bold.underline.cyan('https://github.com/ifazmdzahin/iubcli')}`
+    `  ${chalk.bold.white('GitHub Repository:')}    ${chalk.bold.underline.cyan('https://github.com/Ifaz2611/iubcli')}`
   );
   console.log(
     `  ${chalk.bold.white('Production URL:')}       ${chalk.bold.underline.cyan('https://iubcli.vercel.app')}`
@@ -737,12 +737,12 @@ export function renderAllTokensExhaustedReport(): void {
   const border = chalk.hex('#FF3366')('═'.repeat(76));
 
   console.log('\n' + border);
-  console.log(' ' + chalk.bgHex('#D32F2F').white.bold(' 🛑 ALL FREE MODEL TOKENS EXHAUSTED ACROSS ALL AGENTS '));
+  console.log(' ' + chalk.bgHex('#D32F2F').white.bold(' ALL FREE MODEL TOKENS EXHAUSTED ACROSS ALL AGENTS '));
   console.log(chalk.yellow.bold('\n  IUB CLI has exhaustively cycled through all available free models in the CLI.'));
   console.log(chalk.gray('  All free daily rate limits and per-minute quotas have been temporarily reached.'));
   console.log(chalk.dim('─'.repeat(76)));
 
-  console.log(chalk.bold.hex('#00A3FF')('\n  ⏳ NEXT GLOBAL TOKEN QUOTA RENEWAL IN:'));
+  console.log(chalk.bold.hex('#00A3FF')('\n  NEXT GLOBAL TOKEN QUOTA RENEWAL IN:'));
   console.log(
     `     ${chalk.bgHex('#1A237E').white.bold(
       `  ${hours} Hours, ${minutes} Minutes, ${seconds} Seconds  `
@@ -753,7 +753,7 @@ export function renderAllTokensExhaustedReport(): void {
     `     ${chalk.dim('•')} Reset Time (Local): ${chalk.green.bold(localResetStr)} (Your local timezone)`
   );
 
-  console.log(chalk.bold.yellow('\n  📋 Quota Renewal Schedule by Provider:'));
+  console.log(chalk.bold.yellow('\n  Quota Renewal Schedule by Provider:'));
   console.log(
     `  1. ${chalk.bold.white('Google Gemini Free Tier')}  : Resets ${chalk.green('1,500 Requests/day')} & ${chalk.cyan('1M TPM')} daily at 00:00 UTC`
   );
@@ -768,7 +768,7 @@ export function renderAllTokensExhaustedReport(): void {
   );
   console.log(chalk.dim('─'.repeat(76)));
 
-  console.log(chalk.bold.cyan('\n  💡 WHAT YOU CAN DO RIGHT NOW (NO WAITING REQUIRED):'));
+  console.log(chalk.bold.cyan('\n  WHAT YOU CAN DO RIGHT NOW (NO WAITING REQUIRED):'));
   console.log(`  1. ${chalk.green.bold('Run Local Offline Models (UNLIMITED TOKENS, ZERO LIMITS):')}`);
   console.log(`     Use Ollama for 100% free offline coding on your local CPU/GPU.`);
   console.log(

@@ -62,7 +62,7 @@ for (const width of testWidths) {
   }
 }
 
-console.log(`✔ All ${passedTests}/${totalTests} box width and closure tests PASSED!`);
+console.log(`All ${passedTests}/${totalTests} box width and closure tests PASSED!`);
 console.log('\nSample rendered box output (width 74):');
 const sampleBorderColor = chalk.hex('#00A3FF');
 console.log(renderTopBorder(74, true, 'gemini-3.5-flash-lite', sampleBorderColor));

@@ -91,7 +91,7 @@ async function testAll() {
 
   // Clean up
   fs.rmSync('temp-test', { recursive: true, force: true });
-  console.log('All tool tests passed successfully! ✅');
+  console.log('All tool tests passed successfully! ');
 }
 
 testAll().catch((err) => {

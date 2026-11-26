@@ -149,7 +149,7 @@ export function detectProjectContext(rootDir: string = process.cwd()): ProjectCo
 
   // 8. Markdown Summary for System Prompt Injection
   const summaryLines: string[] = [
-    `### 📁 DETECTED WORKSPACE ENVIRONMENT:`,
+    `### DETECTED WORKSPACE ENVIRONMENT:`,
     `- Framework / Stack: ${framework} (${language}${hasTypeScript ? ', TypeScript' : ''}${hasTailwind ? ', Tailwind CSS' : ''})`,
     `- Package Manager: ${packageManager}`,
   ];

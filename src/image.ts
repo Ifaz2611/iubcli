@@ -53,7 +53,7 @@ export function loadImagePayload(filePath: string): ImagePayload | null {
 
     // Limit image size to 15MB for API safety
     if (stat.size > 15 * 1024 * 1024) {
-      console.log(chalk.yellow(`\n⚠️ Image "${filePath}" is larger than 15MB. Skipping.\n`));
+      console.log(chalk.yellow(`\nImage "${filePath}" is larger than 15MB. Skipping.\n`));
       return null;
     }
 

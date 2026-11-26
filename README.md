@@ -1,11 +1,11 @@
 # IUB CLI
 
-> **The Autonomous, Lightweight BYOK AI Coding Agent in Your Terminal — Fluent in Bangla, Banglish & English with OpenCode-Style Build & Plan Modes.**
+> Autonomous BYOK terminal coding agent for Bangla, Banglish, and English, with BUILD and PLAN modes, local-first configuration, and resilient free-model failover.
 
 [![npm version](https://img.shields.io/npm/v/iubcli.svg?style=flat-square&color=00A3FF)](https://www.npmjs.com/package/iubcli)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg?style=flat-square)](https://nodejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![BYOK](https://img.shields.io/badge/BYOK-100%25%20Serverless-blue.svg?style=flat-square)](#-bring-your-own-key-byok)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](license)
+[![BYOK](https://img.shields.io/badge/BYOK-100%25%20Serverless-blue.svg?style=flat-square)](#bring-your-own-key-byok)
 
 ```
   ██╗ ██╗   ██╗ ██████╗   ██████╗ ██╗      ██╗
@@ -20,49 +20,84 @@
 
 ## Overview
 
-**IUB CLI** (`iubcli`) is an open-source, serverless terminal coding assistant designed from the ground up for developers who think, speak, and code in **বাংলা (Bangla)**, **Banglish**, or **English**.
+**IUB CLI** (`iubcli`) is an open-source, serverless terminal coding assistant for developers who think, speak, and code in **Bangla**, **Banglish**, or **English**.
 
-It brings the best of modern agent design (like OpenCode):
-- **Smart Auto-Cascade Resilience:** If a model's free token quota or rate limit (429/503) is reached, it seamlessly rotates to the next available intelligent free model in the chain without dropping conversation context!
-- **BUILD Mode:** Full autonomous development — reads and writes code, builds packages, runs tests and shell commands.
-- **PLAN Mode:** Senior architect mode — read-only codebase exploration, architecture analysis, and concrete step-by-step implementation plans.
-- **Live Status Bar:** Displays the currently active model, mode, and cascade indicator directly above your prompt.
+It combines a local terminal UI with provider-backed model calls, giving you an agent that can inspect a workspace, plan changes, edit files, run commands, fetch documentation, and coordinate with other local CLI instances.
 
-It is 100% **BYOK (Bring Your Own Key)** — you don't need costly subscriptions. Connect your free **Google Gemini** API key or **OpenRouter** free models (Particle-1, Nemotron, Gemma 4, ERNIE, Groq) and start building software right inside your terminal.
+Core design points:
+
+- **BUILD Mode:** autonomous coding with file reads/writes, edits, shell commands, web search, image input, and project inspection.
+- **PLAN Mode:** read-only architecture and planning mode for senior-engineer style analysis.
+- **BYOK:** bring your own Gemini, OpenRouter, DeepSeek, Groq, Cerebras, Ollama, or custom OpenAI-compatible endpoint.
+- **Auto-cascade:** rotates through available free models when quotas or rate limits are hit.
+- **Local-first:** configuration is stored on your machine through `conf`; there is no hosted middleman.
+- **Zero-key fallback:** if no provider is configured in a non-interactive run, IUB CLI can start with a built-in free starter endpoint or detect local Ollama.
 
 ---
 
 ## Features
 
-- **Superior Autonomous AI Brain (Outperforming Legacy Agents)**:
-  - **Self-Healing Codebase:** If a build command or test fails, the agent inspects compiler logs and stack traces, edits the files, and verifies the fix autonomously.
-  - **Zero Placeholder Code Rule:** Writes 100% complete, production-grade files. No `// TODO`, no skipped code.
-- **Intelligent Multi-Model Auto-Cascade**:
-  - Automatically cascades when tokens run out or rate limits hit (`openrouter/free` ➔ `particle-ai/particle-1:free` ➔ `nvidia/nemotron-3-ultra-550b:free` ➔ `google/gemma-4-31b-it:free` ➔ Gemini 2.0 Flash).
-- **Trilingual Native Fluency**:
-  - **Bangla (বাংলা লিপি):** *"একটি Express.js REST API বানাও JWT auth সহ"*
-  - **Banglish:** *"Ekta React counter app banaye dao Tailwind CSS diye"*
-  - **English:** *"Build a full-stack Next.js portfolio website"*
-- **OpenCode-Style Build & Plan Modes**:
-  - `BUILD Mode`: Autonomous builder with tools to create files, install dependencies, and run commands.
-  - `PLAN Mode`: Safe read-only mode to analyze codebase, design architecture, and formulate plans without modifying files.
-  - Switch anytime with `/mode`, `/plan`, or `/build`.
-- **Real-Time Model & Mode Status Indicator**:
-  - Displays `[BUILD MODE] [openrouter/free] [Auto-Cascade Active]` right above the prompt so you always know what model you are running.
-- **100% BYOK & Serverless**:
-  - No middleman backend. Your API keys are stored locally on your machine via `conf`.
-  - Supports **Google Gemini** (`gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`, `gemini-3.1-flash-lite`).
-  - Supports **DeepSeek Frontier** (`deepseek-chat` [5M free tokens], `deepseek-reasoner` [R1], `deepseek/deepseek-r1:free`).
-  - Supports **OpenRouter Free Tier** (`openrouter/free`, `particle-ai/particle-1:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `dots-studio/dots-3-note-preview:free`).
-  - Supports **Custom OpenAI-Compatible** endpoints (Groq Cloud, Cerebras, Ollama, DeepSeek API).
-- **Autonomous Project Builder (4 Native Tools)**:
-  - `list_files(dirPath)`: Explores workspace directory hierarchy (auto-ignoring `node_modules` and `.git`).
-  - `read_file(filePath)`: Inspects existing source code before editing.
-  - `write_file(filePath, content)`: Creates folders automatically and writes complete, production-ready code.
-  - `run_command(command)`: Executes terminal commands (`npm install`, `npm test`, `git init`, etc.).
-- **Interactive Safety Confirmation**:
-  - Prompts you `[Y/n/a]` before modifying files or executing shell commands.
-  - Includes a *"Yes to all (Auto-approve for this session)"* mode for hands-free autonomous building.
+### Agent Modes
+
+- `BUILD Mode` is the default. It can use workspace tools, modify files, install dependencies, run tests, and execute shell commands.
+- `PLAN Mode` is read-only. It analyzes the codebase and produces structured implementation plans without changing files.
+- Switch modes inside chat with `/mode`, `/plan`, `/build`, or at launch with `-M plan` / `-M build`.
+
+### Providers and Models
+
+Supported provider paths:
+
+- **Google Gemini:** `gemini`, configured through Google AI Studio.
+- **OpenRouter:** `openrouter`, including free `:free` model routes.
+- **Custom OpenAI-compatible:** DeepSeek, Groq, Cerebras, Ollama, local servers, and other compatible APIs.
+- **Zero-key starter:** built-in Pollinations-backed fallback for quick non-interactive use.
+
+Useful commands:
+
+```bash
+iubcli config     # interactive provider/key/model setup
+iubcli guide      # free API key and model guide
+iubcli limits     # token, context, and rate-limit reference
+iubcli agent      # model selector
+iubcli doctor     # environment diagnostics
+```
+
+### Resilience
+
+- Automatic model cascade on rate limits, quota exhaustion, provider errors, or unavailable models.
+- Model explorer can scan candidates for active free tokens.
+- Rolling cooldown keeps long-running tasks alive instead of dropping immediately.
+- Escape key aborts generation and cleans up terminal state.
+
+### Workspace Intelligence
+
+The agent has 12 built-in tools:
+
+- `list_files`
+- `read_file`
+- `write_file`
+- `edit_file`
+- `run_command`
+- `grep_search`
+- `find_files`
+- `fetch_url`
+- `web_search`
+- `list_peers`
+- `peer_call_tool`
+- `peer_send_message`
+
+It also includes project detection for framework, package manager, TypeScript/Tailwind usage, scripts, and workspace structure.
+
+### Terminal UX
+
+- Sticky terminal header with provider, model, mode, mesh role, and workspace path.
+- Markdown rendering for model output.
+- Interactive selects, masked inputs, bracketed-paste protection, `@file` mentions, image paste, and URL ingestion.
+- Status commands for session stats, git state, directory tree, diffs, undo, and token renewal countdown.
+
+### Cross-Instance Mesh
+
+Multiple IUB CLI instances can discover each other on localhost and exchange structured messages or remote tool calls. This is useful for separate frontend/backend workspaces.
 
 ---
 
@@ -70,47 +105,69 @@ It is 100% **BYOK (Bring Your Own Key)** — you don't need costly subscriptions
 
 ### Installation
 
-Install globally via npm:
+Install globally:
 
 ```bash
 npm install -g iubcli
 ```
 
-Or run directly without installing:
+Or run without installing:
 
 ```bash
 npx iubcli
 ```
 
-### First-Time Setup
+### First Run
 
-Simply type:
+Start the interactive CLI:
 
 ```bash
 iubcli
 ```
 
-If it's your first time, the interactive setup wizard will guide you to select a provider and enter your API key:
+On first use, the setup wizard walks you through provider selection, API key entry, model choice, and endpoint configuration.
 
-1. **Google Gemini (Free Tier - Recommended)**
-   - Get key: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-   - Flagship free models: `gemini-3.5-flash-lite` (Flagship Coder), `gemini-3.5-flash` (1M Context), `gemini-3.8-flash` (Latest Preview), `gemini-3.1-flash-lite` (1M token context, 1,500 RPD free)
-2. **OpenRouter (100% Free Coding Models)**
-   - Get key: [openrouter.ai/keys](https://openrouter.ai/keys)
-   - Auto-router: `openrouter/free` (zero downtime)
-   - 1M token free models: `google/lyria-3-pro-preview`, `google/lyria-3-clip-preview`, `particle-ai/particle-1:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `baidu/ernie-5.5-flash-preview:free`, `inclusionai/ling-3.2-flash:free`, `google/gemma-4-31b-it:free`
-3. **Custom OpenAI-Compatible (Groq, Ollama, DeepSeek)**
-   - Groq Cloud (Free): [console.groq.com/keys](https://console.groq.com/keys) (Base URL: `https://api.groq.com/openai/v1`)
-   - Local Offline (Ollama): `http://localhost:11434/v1` (100% Free & offline)
+Recommended free providers:
 
-To view the interactive free API guide:
+1. **Google Gemini** - [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+2. **OpenRouter** - [openrouter.ai/keys](https://openrouter.ai/keys)
+3. **Groq** - [console.groq.com/keys](https://console.groq.com/keys)
+4. **DeepSeek** - [platform.deepseek.com](https://platform.deepseek.com)
+5. **Ollama local** - [ollama.com](https://ollama.com), then use `http://localhost:11434/v1`
+
+For non-interactive or single-prompt runs, IUB CLI can auto-detect local Ollama or fall back to the built-in zero-key starter model.
+
+### Common Launches
+
+Interactive mode:
+
 ```bash
-iubcli guide
+iubcli
 ```
 
-To reconfigure anytime:
+Start in PLAN mode:
+
 ```bash
-iubcli config
+iubcli -M plan
+```
+
+Auto-approve file writes and shell commands:
+
+```bash
+iubcli -y
+```
+
+Run one prompt and exit:
+
+```bash
+iubcli -p "Build a small Express REST API with JWT auth" -y
+```
+
+Start a mesh peer:
+
+```bash
+iubcli --role frontend
+iubcli --role backend
 ```
 
 ---
@@ -120,169 +177,198 @@ iubcli config
 ```text
 Usage: iubcli [options] [command]
 
-Autonomous BYOK terminal coding agent that speaks Bangla, Banglish & English.
-
 Options:
   -v, --version          Output current version
   -m, --model <model>    Override model for this session
-  -M, --mode <mode>      Agent mode: "build" (default) or "plan"
-  -p, --prompt <prompt>  Run a single prompt and exit directly
+  -M, --mode <mode>      Execution mode: "build" (default) or "plan"
+  -p, --prompt <prompt>  Run a single prompt and exit
   -y, --yes              Auto-approve all file writes and shell commands
+  -r, --role <role>      Instance role for cross-instance mesh
+      --mesh-port <port> Local port for mesh broker (default: 49152)
+      --mesh-token <token> Shared authentication token for mesh
+      --no-mesh          Disable cross-instance mesh networking
   -h, --help             Display help for command
 
 Commands:
   config                 Run interactive setup wizard
-  guide (alias: keys)    Display free API keys & models guide
-  limits (alias: tokens) Display free token limits & context windows
-  agent (alias: model)   OpenCode-style AI agent & model selector
-  mode                   Display agent modes guide
-```
-
-### Examples
-
-**Interactive Mode:**
-```bash
-iubcli
-```
-
-**Launch directly in PLAN Mode:**
-```bash
-iubcli -M plan
-```
-
-**Auto-Approve Autonomous Building:**
-```bash
-iubcli -y
-```
-
-**Single Command Execution:**
-```bash
-iubcli -p "Ekta Node.js CLI tool banaw jeta weather show kore" -y
+  guide, keys            Display free API keys and models guide
+  limits, limit, tokens, quota, quotas
+                         Display token limits and rate-limit reference
+  agent, model           OpenCode-style agent and model selector
+  mode                   Display BUILD and PLAN mode guide
+  about, developer       Display creator, GitHub, and project details
+  renewal, countdown     Display token renewal countdown and schedules
+  doctor, check          Run environment diagnostics
+  stats, cost            Display session stats view
+  peers, mesh            Discover connected mesh peers
 ```
 
 ---
 
-## Slash Commands inside Chat
+## Slash Commands
+
+Inside interactive chat:
 
 | Command | Description |
-|---|---|
-| `/mode` | **Toggle between BUILD Mode and PLAN Mode** (OpenCode style) |
-| `/plan` | Switch directly to **PLAN Mode** (read-only architectural planning) |
-| `/build` | Switch directly to **BUILD Mode** (autonomous coding & execution) |
-| `/agent` (or `/model`) | **OpenCode-Style Agent Selector** (Free, Flagship, Gemini, Local) |
-| `/provider` | Switch between Gemini, OpenRouter, or custom providers |
-| `/limits` | View free token quotas, context windows & rate limits |
-| `/guide` | Display direct links & guides for free API keys & models |
-| `/config` | Full interactive setup to re-configure keys, provider, and endpoint |
-| `/clear` | Clear conversation memory and reset token context |
-| `/exit` | Exit the CLI session |
+| --- | --- |
+| `/mode` | Toggle or select BUILD/PLAN mode |
+| `/plan` | Switch to PLAN mode |
+| `/build` | Switch to BUILD mode |
+| `/agent`, `/model`, `/models`, `/m` | Open model/agent selector or switch model |
+| `/provider` | Change provider configuration |
+| `/config` | Run the full setup wizard |
+| `/explore`, `/find-model`, `/scan`, `/free` | Scan models for active free tokens |
+| `/image`, `/screenshot`, `/pic`, `/paste-image` | Stage clipboard or file image input |
+| `/task`, `/urgent`, `/priority` | Dispatch a priority task |
+| `/limits`, `/limit`, `/tokens`, `/quota` | Show token limits and quotas |
+| `/guide`, `/keys` | Show free API key guide |
+| `/renewal`, `/countdown`, `/renew` | Show quota renewal countdown |
+| `/doctor`, `/check` | Run diagnostics |
+| `/stats`, `/cost` | Show live session stats |
+| `/diff`, `/changes` | Show session file changes |
+| `/undo` | Revert the latest agent file change |
+| `/git` | Show git branch, changes, and recent commits |
+| `/tree` | Show workspace directory tree |
+| `/detect`, `/stack` | Show detected project stack |
+| `/compact` | Compact conversation history |
+| `/session`, `/status` | Show active session status |
+| `/peers`, `/mesh` | Show connected mesh peers |
+| `/role` | View or change mesh role |
+| `/send`, `/msg` | Send a message to a mesh peer |
+| `/about`, `/developer`, `/creator` | Show project and developer info |
+| `/clear`, `/cls`, `/reset` | Clear conversation history |
+| `/exit`, `/quit` | Exit IUB CLI |
+| `/help` | Show slash-command help |
 
 ---
 
-## Free API Keys & Models Guide (১০০% ফ্রি API গাইড)
+## Bring Your Own Key (BYOK)
 
-You don't need to spend any money or enter credit cards to use **IUB CLI**. Here are the top free options:
+IUB CLI does not require a subscription. You can connect free or paid provider keys depending on your needs.
 
-### 1. Google Gemini (Google AI Studio) — Recommended
-- **Key URL:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- **Steps:** Sign in with Google account ➔ Click **Create API Key** ➔ Copy the key.
-- **Recommended Free Model:** `gemini-3.5-flash-lite` (100% Free, active, fast, high rate limits).
-- **Alternative Free Models:** `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`.
-- **Free Limit:** 15 Requests per minute (RPM) and 1,500 Requests per day (RPD) free of charge!
+### Google Gemini
 
-### 2. OpenRouter (Access 100% Free Frontier Models)
-- **Key URL:** [openrouter.ai/keys](https://openrouter.ai/keys)
-- **Steps:** Sign in with GitHub or Google ➔ Click **Create Key** ➔ Copy the key.
-- **Top Free Models (`:free`):**
-  - `openrouter/free` — Automatic zero-downtime routing to the best active free model.
-  - `particle-ai/particle-1:free` — Specialized 1M token context agentic coding model.
-  - `nvidia/nemotron-3-ultra-550b-a55b:free` — Massive 550B frontier model with 1M tokens.
-  - `google/gemma-4-31b-it:free` — Google DeepMind 30.7B dense instruction-tuned model.
-  - `dots-studio/dots-3-note-preview:free` — 512,000 token context reasoning and code model.
-- **Cost:** 100% Free with zero credit card required.
+- Key URL: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- Good for: fast general coding, large context, tool calling.
+- Setup: choose Google Gemini in `iubcli config` or `/config`.
 
-### 3. Groq Cloud (Ultra-Fast 500+ tokens/sec)
-- **Key URL:** [console.groq.com/keys](https://console.groq.com/keys)
-- **Steps:** Choose `Custom OpenAI-Compatible` in **IUB CLI** ➔ Set Base URL to `https://api.groq.com/openai/v1`.
-- **Free Models:** `llama-3.3-70b-versatile`, `qwen-2.5-coder-32b`, `deepseek-r1-distill-llama-70b`.
+### OpenRouter
 
-### 4. Local Offline Models (100% Private via Ollama)
-- **Download:** [ollama.com](https://ollama.com)
-- **Run in terminal:** `ollama run qwen2.5-coder` or `ollama run deepseek-r1`
-- **Steps in IUB CLI:** Choose `Custom OpenAI-Compatible` ➔ Base URL: `http://localhost:11434/v1` ➔ API key: `ollama` (or any string).
-- **Cost:** 100% Free, unlimited, runs entirely on your local machine without internet.
+- Key URL: [openrouter.ai/keys](https://openrouter.ai/keys)
+- Good for: many free `:free` models and easy provider switching.
+- Examples: `openrouter/free`, `particle-ai/particle-1:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`.
+
+### DeepSeek
+
+- Key URL: [platform.deepseek.com](https://platform.deepseek.com)
+- Setup: choose Custom OpenAI-Compatible and use `https://api.deepseek.com/v1`.
+- Models: `deepseek-chat`, `deepseek-reasoner`, and related DeepSeek endpoints.
+
+### Groq
+
+- Key URL: [console.groq.com/keys](https://console.groq.com/keys)
+- Setup: choose Custom OpenAI-Compatible and use `https://api.groq.com/openai/v1`.
+- Good for: very fast inference on supported open models.
+
+### Cerebras
+
+- Key URL: [cloud.cerebras.ai](https://cloud.cerebras.ai)
+- Setup: choose Custom OpenAI-Compatible and use `https://api.cerebras.ai/v1`.
+- Good for: low-latency inference on supported models.
+
+### Ollama / Local Models
+
+- Download: [ollama.com](https://ollama.com)
+- Example:
+
+```bash
+ollama run qwen2.5-coder
+ollama run deepseek-r1
+```
+
+- IUB CLI setup: Custom OpenAI-Compatible, base URL `http://localhost:11434/v1`, API key can be any string such as `ollama`.
+- Benefit: local, private, and not dependent on hosted rate limits.
+
+### Zero-Key Fallback
+
+For quick non-interactive use, IUB CLI can start with a built-in free starter endpoint when no key is configured. For serious coding work, configure Gemini, OpenRouter, DeepSeek, Groq, Cerebras, or Ollama for better tool calling and quotas.
 
 ---
 
-### Token Capacities & Free Rate Limits Comparison
+## Safety Model
 
-| Provider | Model | Context Window | Req / Min (RPM) | Tokens / Min (TPM) | Req / Day (RPD) |
-|---|---|---|---|---|---|
-| **Google Gemini** | `gemini-3.5-flash-lite` | **1,048,576** tokens | 15 RPM | **1,000,000** TPM | **1,500** RPD |
-| **DeepSeek Platform**| `deepseek-chat` (V3) | 128,000 tokens | High Speed | 5M Free Tokens | Free Signup |
-| **OpenRouter** | `openrouter/free` | 200,000 tokens | 20 RPM | Generous Free | ~200 RPD |
-| **OpenRouter** | `particle-ai/particle-1:free` | **1,048,576** tokens | 20 RPM | Generous Free | ~200 RPD |
-| **Groq Cloud** | `llama-3.3-70b-versatile` | 128,000 tokens | 30 RPM | 6,000 TPM | **14,400** RPD |
-| **Cerebras Cloud** | `llama3.3-70b` | 128,000 tokens | 30 RPM | Ultra Low-Latency | **14,400** RPD |
-| **Ollama (Local)** | `qwen2.5-coder` | Hardware limit | **Unlimited** | **Unlimited** | **Unlimited** |
+In BUILD mode, file writes, edits, and shell commands can require confirmation before execution. Use `-y` or the auto-approve option only in trusted directories.
 
-> **Auto-Failover Protection:** If a model temporarily returns 503 (High Demand) or quota limit, **IUB CLI** automatically cascades to the next best zero-plan free model (`gemini-3.5-flash-lite`, `openrouter/free`, etc.) so your building process never crashes!
+PLAN mode blocks mutation tools entirely, making it safer for architecture review and planning.
 
 ---
 
 ## Project Architecture
 
-```
+```text
 iubcli/
 ├── src/
-│   ├── index.ts     # CLI entry point, commander setup, interactive REPL loop
-│   ├── config.ts    # Secure local configuration manager (conf & @clack/prompts)
-│   ├── agent.ts     # Autonomous agent orchestrator (Gemini & OpenAI tool calling)
-│   ├── tools.ts     # 4 Core workspace tools with interactive safety confirmations
-│   └── ui.ts        # ASCII banner, terminal markdown rendering, spinners
+│   ├── index.ts       # CLI entry point, commander commands, interactive loop
+│   ├── agent.ts       # model orchestration, cascade, retries, tool loop
+│   ├── tools.ts       # workspace tools and safety confirmations
+│   ├── prompt.ts      # terminal input, sticky UI, selects, paste handling
+│   ├── ui.ts          # banner, markdown rendering, reports, help
+│   ├── config.ts      # local config, provider defaults, verification
+│   ├── models.ts      # model presets and interactive selector
+│   ├── explorer.ts    # free-model discovery
+│   ├── detector.ts    # project stack detection
+│   ├── image.ts       # clipboard/file image payload loading
+│   └── mesh.ts        # cross-instance peer networking
 ├── scripts/
-│   └── test-tools.ts# End-to-end tool validation suite
-├── package.json     # Node 18+ ESM configuration with bin mappings
-├── tsconfig.json    # Strict TypeScript configuration
-└── tsup.config.ts   # Fast zero-config bundler
+│   ├── test-tools.ts
+│   ├── test-image.ts
+│   ├── test-box.ts
+│   └── test-gemini-tools.ts
+├── public/
+│   └── index.html     # project landing page
+├── package.json
+├── tsconfig.json
+└── tsup.config.ts
 ```
 
 ---
 
-## Development & Testing
+## Development
 
-Clone the repository and install dependencies:
+Clone the repository:
 
 ```bash
-git clone https://github.com/ifazmdzahin/iubcli.git
+git clone https://github.com/Ifaz2611/iubcli.git
 cd iubcli
 npm install
 ```
 
-Run TypeScript type check:
+Run checks:
+
 ```bash
 npm run typecheck
-```
-
-Run test suite:
-```bash
 npm test
-```
-
-Build distribution bundle:
-```bash
 npm run build
 ```
 
-Link locally for testing:
+Link locally for manual testing:
+
 ```bash
 npm link
 iubcli --help
 ```
 
----
+Package scripts:
 
+- `npm run build` - bundle with `tsup`
+- `npm run dev` - watch-mode bundling
+- `npm run typecheck` - TypeScript check
+- `npm test` - run local tool/image/box test scripts
+- `npm start` - run the built CLI
+- `npm run prepublishOnly` - typecheck, test, and build before publish
+
+---
 
 ## License
 
-[MIT](LICENSE) 
+[MIT](license)

@@ -183,12 +183,12 @@ program
             model: localOllama[0],
             baseURL: 'http://localhost:11434/v1',
           };
-          console.log(chalk.cyan(`ℹ️  Auto-detected Local Ollama (${localOllama[0]}).`));
+          console.log(chalk.cyan(` Auto-detected Local Ollama (${localOllama[0]}).`));
         } else {
           config = createZeroKeyConfig();
           console.log(
             chalk.cyan(
-              'ℹ️  No API key configured — starting with Free Zero-Key AI. Run "iubcli config" anytime to add a free Gemini key.'
+              ' No API key configured — starting with Free Zero-Key AI. Run "iubcli config" anytime to add a free Gemini key.'
             )
           );
         }
@@ -221,7 +221,7 @@ program
         provider: config.provider,
         workspace: process.cwd(),
         onRemoteToolExecution: async (tool, args, fromRole) => {
-          console.log(chalk.cyan(`\n📡 [Mesh RPC from ${chalk.bold(fromRole)}] Executing tool: ${chalk.bold(tool)}`));
+          console.log(chalk.cyan(`\n[Mesh RPC from ${chalk.bold(fromRole)}] Executing tool: ${chalk.bold(tool)}`));
           updateFixedBottomStatus(`[Mesh: ${fromRole}] Executing ${tool}...`, {
             mode: agent.getMode(),
             model: config?.model || 'unknown',
@@ -232,7 +232,7 @@ program
         },
         onPeerMessage: (message, fromRole) => {
           console.log(
-            chalk.bgHex('#002B5C').hex('#00A3FF').bold(`\n 📬 [Mesh Message from ${fromRole}]: `) +
+            chalk.bgHex('#002B5C').hex('#00A3FF').bold(`\n [Mesh Message from ${fromRole}]: `) +
               chalk.white(message) + '\n'
           );
         },
@@ -246,7 +246,7 @@ program
             return;
           }
           console.log(
-            chalk.green(`\n🌐 [Mesh] Connected to peer [${chalk.bold(peer.role)}] (${peer.workspace})\n`)
+            chalk.green(`\n[Mesh] Connected to peer [${chalk.bold(peer.role)}] (${peer.workspace})\n`)
           );
           updateFixedBottomStatus(`Peer connected: ${peer.role}`, {
             mode: agent.getMode(),
@@ -263,7 +263,7 @@ program
             return;
           }
           console.log(
-            chalk.yellow(`\n🌐 [Mesh] Peer disconnected: [${chalk.bold(peer.role)}] (${peer.workspace})\n`)
+            chalk.yellow(`\n[Mesh] Peer disconnected: [${chalk.bold(peer.role)}] (${peer.workspace})\n`)
           );
         },
       });
@@ -311,7 +311,7 @@ program
     if (options.prompt) {
       console.log(
         chalk.cyan(
-          `\n⚡ Running single prompt with ${formatProviderLabel(config)} (${config.model}) in [${initialMode.toUpperCase()} MODE]:`
+          `\nRunning single prompt with ${formatProviderLabel(config)} (${config.model}) in [${initialMode.toUpperCase()} MODE]:`
         )
       );
       console.log(chalk.white(options.prompt) + '\n');
@@ -338,7 +338,7 @@ program
         if (abortController.signal.aborted) {
           renderInterruptedNotice();
         } else {
-          console.error(chalk.red(`\n✖ Error: ${err.message}\n`));
+          console.error(chalk.red(`\nError: ${err.message}\n`));
           process.exitCode = 1;
         }
       } finally {
@@ -385,7 +385,7 @@ program
 
       // Handle Slash Commands
       if (lowerCmd === '/exit' || lowerCmd === '/quit') {
-        console.log(chalk.hex('#00A3FF')('\nThanks for using IUB CLI. Happy coding! 🚀\n'));
+        console.log(chalk.hex('#00A3FF')('\nThanks for using IUB CLI. Happy coding! \n'));
         gracefulExit(0);
         return;
       }
@@ -411,7 +411,7 @@ program
             agent.getMode()
           );
         } else {
-          console.log(chalk.yellow('\n⚠️ All free models currently have zero available quota across all providers.\n'));
+          console.log(chalk.yellow('\nAll free models currently have zero available quota across all providers.\n'));
         }
         continue;
       }
@@ -435,11 +435,11 @@ program
           if (fs.existsSync(resolved) && isImageFile(resolved)) {
             capturedPath = resolved;
           } else {
-            console.log(chalk.red(`\n✖ Could not find image file at: ${cleanArg}\n`));
+            console.log(chalk.red(`\nCould not find image file at: ${cleanArg}\n`));
             continue;
           }
         } else {
-          process.stdout.write(chalk.cyan('\n📸 Checking system clipboard for screenshot / image...\n'));
+          process.stdout.write(chalk.cyan('\nChecking system clipboard for screenshot / image...\n'));
           capturedPath = captureClipboardImage();
         }
 
@@ -450,24 +450,24 @@ program
             const kb = (payload.size / 1024).toFixed(1);
             console.log(
               '\n' +
-                chalk.bgHex('#002B5C').hex('#00A3FF').bold(' 🖼️  IMAGE STAGED SUCCESSFULLY ') +
+                chalk.bgHex('#002B5C').hex('#00A3FF').bold('  IMAGE STAGED SUCCESSFULLY ') +
                 '\n' +
                 `  ${chalk.gray('File:')} ${chalk.white(path.basename(payload.path))}\n` +
                 `  ${chalk.gray('Format:')} ${chalk.cyan(payload.mimeType)} (${kb} KB)\n` +
                 `  ${chalk.gray('Saved to:')} ${chalk.dim(payload.path)}\n\n` +
-                chalk.green.bold('✔ Ready!') +
+                chalk.green.bold('Ready!') +
                 chalk.white(' Type your question or prompt (e.g. "Explain this error" or "Code this UI") and press Enter.\n')
             );
           } else {
-            console.log(chalk.yellow('\n⚠️ Could not read image payload (file might be damaged or larger than 15MB).\n'));
+            console.log(chalk.yellow('\nCould not read image payload (file might be damaged or larger than 15MB).\n'));
           }
         } else {
           console.log(
             '\n' +
-              chalk.bgHex('#FF9900').black.bold(' ⚠️  NO IMAGE FOUND IN CLIPBOARD ') +
+              chalk.bgHex('#FF9900').black.bold('  NO IMAGE FOUND IN CLIPBOARD ') +
               '\n' +
               chalk.white('No image data was found in your clipboard.\n\n') +
-              chalk.yellow('💡 How to paste a screenshot:') +
+              chalk.yellow('How to paste a screenshot:') +
               '\n' +
               `  1. Take a screenshot: ${chalk.bold('Win + Shift + S')} on Windows, or ${chalk.bold('Cmd + Shift + 4')} on macOS\n` +
               `  2. Return here and run ${chalk.cyan.bold('/image')}\n` +
@@ -500,12 +500,12 @@ program
           options: [
             {
               value: 'build',
-              label: '⚡ BUILD Mode (Autonomous Full-Stack Coding)',
+              label: 'BUILD Mode (Autonomous Full-Stack Coding)',
               hint: 'Full tool access: inspect, create/update files & run terminal commands',
             },
             {
               value: 'plan',
-              label: '📋 PLAN Mode (Senior Architect & Planning)',
+              label: 'PLAN Mode (Senior Architect & Planning)',
               hint: 'Read-only: inspect files, explore architecture & design step-by-step plans',
             },
           ],
@@ -514,7 +514,7 @@ program
         if (modeChoice) {
           agent.setMode(modeChoice);
           meshNode?.updateState({ mode: modeChoice });
-          console.log(chalk.green(`\n✔ Agent mode switched to: ${modeChoice === 'build' ? '⚡ BUILD Mode' : '📋 PLAN Mode'}\n`));
+          console.log(chalk.green(`\nAgent mode switched to: ${modeChoice === 'build' ? 'BUILD Mode' : 'PLAN Mode'}\n`));
         }
         continue;
       }
@@ -533,7 +533,7 @@ program
           config.model,
           'plan'
         );
-        console.log(chalk.hex('#FFB300')('\n📋 Active mode switched to PLAN MODE (Senior Architect & Read-Only Planning).\n'));
+        console.log(chalk.hex('#FFB300')('\nActive mode switched to PLAN MODE (Senior Architect & Read-Only Planning).\n'));
         continue;
       }
 
@@ -551,7 +551,7 @@ program
           config.model,
           'build'
         );
-        console.log(chalk.hex('#00A3FF')('\n⚡ Active mode switched to BUILD MODE (Autonomous Full-Stack Coding & Execution Enabled).\n'));
+        console.log(chalk.hex('#00A3FF')('\nActive mode switched to BUILD MODE (Autonomous Full-Stack Coding & Execution Enabled).\n'));
         continue;
       }
 
@@ -658,9 +658,9 @@ program
       if (lowerCmd === '/diff' || lowerCmd === '/changes') {
         const changes = getSessionChanges();
         if (changes.length === 0) {
-          console.log(chalk.yellow('\nℹ️  No file modifications or creations recorded in this session.\n'));
+          console.log(chalk.yellow('\n No file modifications or creations recorded in this session.\n'));
         } else {
-          console.log('\n' + chalk.bold.hex('#00A3FF')('📁 Files Modified / Created in this Session:'));
+          console.log('\n' + chalk.bold.hex('#00A3FF')('Files Modified / Created in this Session:'));
           console.log(chalk.dim('─'.repeat(60)));
           changes.forEach((c, idx) => {
             const status = c.isNew ? chalk.green('[NEW]') : chalk.yellow('[MODIFIED]');
@@ -677,7 +677,7 @@ program
         if (result.success) {
           console.log(chalk.green(`\n${result.message}\n`));
         } else {
-          console.log(chalk.yellow(`\nℹ️  ${result.message}\n`));
+          console.log(chalk.yellow(`\n ${result.message}\n`));
         }
         continue;
       }
@@ -694,7 +694,7 @@ program
 
       if (lowerCmd === '/detect' || lowerCmd === '/stack') {
         const ctx = detectProjectContext();
-        console.log('\n' + chalk.bold.hex('#00A3FF')('🔍 Detected Workspace Environment'));
+        console.log('\n' + chalk.bold.hex('#00A3FF')('Detected Workspace Environment'));
         console.log(chalk.dim('─'.repeat(60)));
         console.log(ctx.summary.split('\n').slice(1).map(l => '  ' + l).join('\n'));
         console.log(chalk.dim('─'.repeat(60)) + '\n');
@@ -705,8 +705,8 @@ program
         const result = agent.compactHistory();
         console.log(
           chalk.green(
-            `\n✔ Conversation history compacted!\n` +
-              `Turns before: ${chalk.yellow(result.turnsBefore)} ➔ Turns after: ${chalk.green(result.turnsAfter)}\n` +
+            `\nConversation history compacted!\n` +
+              `Turns before: ${chalk.yellow(result.turnsBefore)} -> Turns after: ${chalk.green(result.turnsAfter)}\n` +
               `Context window optimized for faster responses and lower token load.\n`
           )
         );
@@ -716,11 +716,11 @@ program
       if (lowerCmd === '/session' || lowerCmd === '/status') {
         const changes = getSessionChanges();
         const mem = agent.getHistoryStats();
-        console.log('\n' + chalk.bold.hex('#00A3FF')('📊 Active Session Status (OpenCode Style)'));
+        console.log('\n' + chalk.bold.hex('#00A3FF')('Active Session Status (OpenCode Style)'));
         console.log(chalk.dim('─'.repeat(60)));
         console.log(`  ${chalk.gray('Provider:')}       ${chalk.bold(PROVIDER_LABELS[config.provider])}`);
         console.log(`  ${chalk.gray('Active Model:')}   ${chalk.cyan.bold(config.model)}`);
-        console.log(`  ${chalk.gray('Active Mode:')}    ${agent.getMode() === 'build' ? chalk.green.bold('⚡ BUILD') : chalk.yellow.bold('📋 PLAN')}`);
+        console.log(`  ${chalk.gray('Active Mode:')}    ${agent.getMode() === 'build' ? chalk.green.bold('BUILD') : chalk.yellow.bold('PLAN')}`);
         console.log(`  ${chalk.gray('Working Dir:')}    ${chalk.white(process.cwd())}`);
         console.log(`  ${chalk.gray('Files Touched:')}  ${chalk.yellow(changes.length)} files`);
         console.log(`  ${chalk.gray('Auto-Approve:')}   ${safetySession.autoApproveAll ? chalk.green('Enabled (-y)') : chalk.gray('Confirm per action')}`);
@@ -732,16 +732,16 @@ program
       if (lowerCmd === '/peers' || lowerCmd === '/mesh') {
         const mesh = getActiveMeshNode();
         if (!mesh) {
-          console.log(chalk.yellow('\nℹ️ Cross-instance mesh is disabled on this instance (--no-mesh).\n'));
+          console.log(chalk.yellow('\nCross-instance mesh is disabled on this instance (--no-mesh).\n'));
         } else {
           const allPeers = mesh.listPeers();
           const remotePeers = allPeers.filter((p) => p.nodeId !== mesh.nodeId);
-          console.log('\n' + chalk.bold.hex('#00A3FF')('🌐 Cross-Instance Workspace Mesh (Multi-Agent Sync)'));
+          console.log('\n' + chalk.bold.hex('#00A3FF')('Cross-Instance Workspace Mesh (Multi-Agent Sync)'));
           console.log(chalk.dim('─'.repeat(70)));
           console.log(`  ${chalk.bold('This Instance:')}  [${chalk.cyan.bold(mesh.role.toUpperCase())}] (Node: ${chalk.gray(mesh.nodeId)})`);
           console.log(`  ${chalk.gray('Workspace:')}      ${mesh.workspace}`);
           console.log(`  ${chalk.gray('Mesh Status:')}    ${mesh['isHost'] ? chalk.green('Broker Host') : chalk.blue('Peer Client')} on 127.0.0.1:${mesh.port}`);
-          console.log(`  ${chalk.gray('Active Mode:')}   ${mesh.mode === 'build' ? chalk.green('⚡ BUILD') : chalk.yellow('📋 PLAN')}`);
+          console.log(`  ${chalk.gray('Active Mode:')}   ${mesh.mode === 'build' ? chalk.green('BUILD') : chalk.yellow('PLAN')}`);
           console.log(chalk.dim('─'.repeat(70)));
           if (remotePeers.length === 0) {
             console.log(chalk.yellow(`  No other IUB CLI instances connected yet.`));
@@ -752,8 +752,8 @@ program
               const roleBadge = chalk.bold.hex('#00A3FF')(`[${p.role.toUpperCase()}]`);
               const modeBadge = p.mode === 'build' ? chalk.green('BUILD') : chalk.yellow('PLAN');
               console.log(`  ${idx + 1}. ${roleBadge} (nodeId: ${chalk.gray(p.nodeId)})`);
-              console.log(`     📁 Workspace: ${chalk.white(p.workspace)}`);
-              console.log(`     ⚡ Mode: ${modeBadge}  •  🤖 Model: ${chalk.cyan(p.model)} (${p.provider})`);
+              console.log(`     Workspace: ${chalk.white(p.workspace)}`);
+              console.log(`     Mode: ${modeBadge}  •  Model: ${chalk.cyan(p.model)} (${p.provider})`);
             });
             console.log(chalk.dim('─'.repeat(70)) + '\n');
           }
@@ -765,13 +765,13 @@ program
         const parts = trimmed.split(/\s+/);
         const mesh = getActiveMeshNode();
         if (!mesh) {
-          console.log(chalk.yellow('\nℹ️ Mesh is not active on this instance.\n'));
+          console.log(chalk.yellow('\nMesh is not active on this instance.\n'));
           continue;
         }
         if (parts.length > 1) {
           const newRole = parts.slice(1).join('-').trim();
           mesh.updateState({ role: newRole });
-          console.log(chalk.green(`\n✔ Instance role updated to: [${chalk.bold(newRole)}]\n`));
+          console.log(chalk.green(`\nInstance role updated to: [${chalk.bold(newRole)}]\n`));
         } else {
           console.log(chalk.cyan(`\nCurrent instance role: [${chalk.bold(mesh.role)}] (Usage: /role <frontend|backend|name>)\n`));
         }
@@ -788,17 +788,17 @@ program
         const msg = parts.slice(2).join(' ');
         const mesh = getActiveMeshNode();
         if (!mesh) {
-          console.log(chalk.yellow('\nℹ️ Mesh is not active on this instance.\n'));
+          console.log(chalk.yellow('\nMesh is not active on this instance.\n'));
           continue;
         }
         const result = await mesh.sendMessage(target, msg);
-        console.log(chalk.green(`\n✔ ${result}\n`));
+        console.log(chalk.green(`\n${result}\n`));
         continue;
       }
 
       if (lowerCmd === '/clear' || lowerCmd === '/cls' || lowerCmd === '/reset') {
         agent.resetHistory();
-        console.log(chalk.green('✔ Conversation history cleared! Session memory reset.\n'));
+        console.log(chalk.green('Conversation history cleared! Session memory reset.\n'));
         continue;
       }
 
@@ -812,7 +812,7 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
-          console.log(chalk.green(`\n✔ Provider updated to: ${formatProviderLabel(config)} (${config.model})\n`));
+          console.log(chalk.green(`\nProvider updated to: ${formatProviderLabel(config)} (${config.model})\n`));
         }
         continue;
       }
@@ -826,7 +826,7 @@ program
         const newConfig = await promptConfig(false, config);
         config = newConfig;
         agent.updateConfig(newConfig);
-        console.log(chalk.green(`\n✔ Configuration updated: ${formatProviderLabel(config)} (${config.model})\n`));
+        console.log(chalk.green(`\nConfiguration updated: ${formatProviderLabel(config)} (${config.model})\n`));
         continue;
       }
 
@@ -848,7 +848,7 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
-          console.log(chalk.green(`\n✔ Active model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
+          console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
         }
         continue;
       }
@@ -922,7 +922,7 @@ program
         if (newConfig) {
           config = newConfig;
           agent.updateConfig(newConfig);
-          console.log(chalk.green(`\n✔ Active model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
+          console.log(chalk.green(`\nActive model updated to: ${config.model} [${config.provider.toUpperCase()}]\n`));
         }
         continue;
       }
@@ -957,7 +957,7 @@ program
         hasAborted = true;
         abortController.abort();
         renderInterruptedNotice();
-        updateFixedBottomStatus('⏹️ Stopped by Escape key', {
+        updateFixedBottomStatus('Stopped by Escape key', {
           mode: agent.getMode(),
           model: config?.model || 'unknown',
         });
@@ -978,7 +978,7 @@ program
         if (abortController.signal.aborted || hasAborted) {
           // Notice already rendered immediately upon Escape press
         } else {
-          console.error(chalk.red(`\n✖ Agent Error: ${err.message}\n`));
+          console.error(chalk.red(`\nAgent Error: ${err.message}\n`));
         }
       } finally {
         detachEscape();
@@ -1035,9 +1035,9 @@ program
   .command('mode')
   .description('Switch agent mode between BUILD (autonomous coder) and PLAN (architect)')
   .action(async () => {
-    console.log(chalk.bold.hex('#00A3FF')('\n🎓 IUB CLI Agent Modes (OpenCode Style):\n'));
-    console.log(`  ${chalk.green.bold('⚡ BUILD Mode:')} Autonomous full-stack coder. Inspects, writes files & runs terminal commands.`);
-    console.log(`  ${chalk.yellow.bold('📋 PLAN Mode:')} Senior Architect. Read-only codebase investigation & architectural planning.\n`);
+    console.log(chalk.bold.hex('#00A3FF')('\nIUB CLI Agent Modes (OpenCode Style):\n'));
+    console.log(`  ${chalk.green.bold('BUILD Mode:')} Autonomous full-stack coder. Inspects, writes files & runs terminal commands.`);
+    console.log(`  ${chalk.yellow.bold('PLAN Mode:')} Senior Architect. Read-only codebase investigation & architectural planning.\n`);
     console.log(chalk.gray('Use "/mode", "/plan", or "/build" inside interactive chat or launch with "iubcli -M plan".\n'));
   });
 
@@ -1153,7 +1153,7 @@ async function handleSwitchModel(config: IUBCLIConfig, agent: IUBAgent): Promise
       message: 'Switch Gemini Model:',
       initialValue: config.model,
       options: [
-        { value: 'gemini-3.5-flash-lite', label: 'gemini-3.5-flash-lite (🌟 Verified Active Free, 1M Tokens, 1,500 RPD)' },
+        { value: 'gemini-3.5-flash-lite', label: 'gemini-3.5-flash-lite (Verified Active Free, 1M Tokens, 1,500 RPD)' },
         { value: 'gemini-3.1-flash-lite', label: 'gemini-3.1-flash-lite (Ultra-Fast Free Tier)' },
         { value: 'gemma-4-31b-it', label: 'gemma-4-31b-it (Gemma 4 31B Tool-Capable Free)' },
         { value: 'gemma-4-26b-a4b-it', label: 'gemma-4-26b-a4b-it (Gemma 4 26B MoE Free)' },
@@ -1212,7 +1212,7 @@ async function handleSwitchModel(config: IUBCLIConfig, agent: IUBAgent): Promise
   config.model = selectedModel;
   updateModel(selectedModel);
   agent.setModel(selectedModel);
-  console.log(chalk.green(`\n✔ Switched model to: ${chalk.bold(selectedModel)}\n`));
+  console.log(chalk.green(`\nSwitched model to: ${chalk.bold(selectedModel)}\n`));
 }
 
 // Explicit peers subcommand
@@ -1224,7 +1224,7 @@ program
     const node = new MeshNode({ role: 'cli-scanner', workspace: process.cwd() });
     await node.start();
     const peers = node.listPeers().filter((p) => p.nodeId !== node.nodeId);
-    console.log('\n' + chalk.bold.hex('#00A3FF')('🌐 Cross-Instance Workspace Mesh Status:'));
+    console.log('\n' + chalk.bold.hex('#00A3FF')('Cross-Instance Workspace Mesh Status:'));
     console.log(chalk.dim('─'.repeat(70)));
     if (peers.length === 0) {
       console.log(chalk.yellow('  No other active IUB CLI instances detected on 127.0.0.1:49152.'));
@@ -1233,8 +1233,8 @@ program
       console.log(chalk.bold(`  Active Peers (${peers.length}):`));
       peers.forEach((p, idx) => {
         console.log(`  ${idx + 1}. [${chalk.cyan.bold(p.role.toUpperCase())}] (${chalk.gray(p.nodeId)})`);
-        console.log(`     📁 Workspace: ${chalk.white(p.workspace)}`);
-        console.log(`     ⚡ Mode: ${p.mode.toUpperCase()}  •  🤖 Model: ${p.model} (${p.provider})`);
+        console.log(`     Workspace: ${chalk.white(p.workspace)}`);
+        console.log(`     Mode: ${p.mode.toUpperCase()}  •  Model: ${p.model} (${p.provider})`);
       });
       console.log(chalk.dim('─'.repeat(70)) + '\n');
     }
