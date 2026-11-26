@@ -6,6 +6,12 @@ node_modules/
 # Build outputs
 dist/
 
+# npm packaging artifacts
+*.tgz
+
+# Local npm config (may contain auth tokens)
+.npmrc
+
 # IUB CLI runtime artifacts
 .iubcli/
 .iubcli_check.tmp

@@ -15,7 +15,11 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/test-tools.ts && tsx scripts/test-image.ts && tsx scripts/test-box.ts",
-    "start": "node ./dist/index.js"
+    "start": "node ./dist/index.js",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [
     "ai",
@@ -30,15 +34,15 @@
     "openrouter",
     "deepseek"
   ],
-  "author": "Ifaz MD Zahin (https://github.com/ifazmdzahin)",
+  "author": "Ifaz MD Zahin (https://github.com/Ifaz2611)",
   "license": "MIT",
   "homepage": "https://iubcli.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ifazmdzahin/iubcli.git"
+    "url": "https://github.com/Ifaz2611/iubcli"
   },
   "bugs": {
-    "url": "https://github.com/ifazmdzahin/iubcli/issues"
+    "url": "https://github.com/Ifaz2611/iubcli/issues"
   },
   "dependencies": {
     "@clack/prompts": "^1.9.0",
@@ -51,14 +55,14 @@
     "openai": "^7.62.0",
     "ora": "^10.0.0",
     "string-width": "^4.2.3",
-    "tsup": "^9.0.0",
-    "typescript": "^7.0.2",
     "ws": "^8.23.0"
   },
   "devDependencies": {
     "@types/marked-terminal": "^6.1.1",
     "@types/node": "^26.6.6",
     "@types/ws": "^8.18.2",
-    "tsx": "^4.23.15"
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
