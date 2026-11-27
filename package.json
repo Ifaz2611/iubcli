@@ -8,7 +8,9 @@
     "iubcli": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "!public",
+    "!public/**"
   ],
   "scripts": {
     "build": "tsup",

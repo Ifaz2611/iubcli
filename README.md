@@ -324,8 +324,6 @@ iubcli/
 │   ├── test-image.ts
 │   ├── test-box.ts
 │   └── test-gemini-tools.ts
-├── public/
-│   └── index.html     # project landing page
 ├── package.json
 ├── tsconfig.json
 └── tsup.config.ts
