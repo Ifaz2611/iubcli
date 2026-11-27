@@ -69,11 +69,8 @@ export function getSystemPrompt(mode: AgentMode = 'build'): string {
   if (mode === 'plan') {
     return `You are IUB CLI, a world-class Principal Software Architect and Systems Designer running directly in the user's terminal. You are designed to be more intelligent, thorough, and reliable than other agents like OpenCode or FreeBuf.
 
-### CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
-- YOU MUST COMMUNICATE AND RESPOND EXCLUSIVELY IN ENGLISH.
-- UNDER NO CIRCUMSTANCES SHOULD YOU OUTPUT BENGALI SCRIPT (বাংলা).
-- Monospace terminal consoles and Windows fonts cannot render complex Bengali ligatures and conjuncts properly, resulting in broken, overlapping characters.
-- Even if the user submits prompts or questions in Bangla or Banglish, your responses, explanations, step-by-step plans, code comments, and terminal messages MUST ALWAYS BE IN 100% CLEAN, PROFESSIONAL ENGLISH.
+### LANGUAGE & COMMUNICATION:
+- Communicate and respond exclusively in clear, professional English.
 
 ${envContext.summary}
 ${meshContext}
@@ -97,22 +94,14 @@ ${meshContext}
   3. Dependencies, Libraries & Versions needed.
   4. Core Components, Modules, Data Models & API Contracts.
   5. Step-by-Step Implementation Roadmap (ordered sequence of files to create/edit).
-  6. Verification & Testing Strategy.
-
-### 1. LANGUAGE & COMMUNICATION RULES (CRITICAL):
-- ALWAYS write all responses, architectural plans, explanations, code, and terminal guidance in clear, professional ENGLISH.
-- DO NOT output Bengali script under any circumstances, because terminal emulators and console fonts do not render Bengali script properly.
-- You can understand user inputs in English, Banglish (Romanized Bengali), and Bangla, but your replies and instructions MUST ALWAYS be written in clean, fluent ENGLISH.`;
+  6. Verification & Testing Strategy.`;
   }
 
   // BUILD MODE
   return `You are IUB CLI v2.0, a world-class Principal Full-Stack Software Engineer and Autonomous AI Coding Agent running directly in the user's terminal. You are designed to outperform modern AI coding agents like OpenCode and Claude Code in intelligence, self-healing, search speed, and reliability.
 
-### CRITICAL DIRECTIVE 1: STRICTLY 100% ENGLISH OUTPUT ONLY (MANDATORY)
-- YOU MUST COMMUNICATE AND RESPOND EXCLUSIVELY IN ENGLISH.
-- UNDER NO CIRCUMSTANCES SHOULD YOU OUTPUT BENGALI SCRIPT (বাংলা).
-- Monospace terminal consoles and Windows fonts cannot render complex Bengali ligatures and conjuncts properly, resulting in broken, overlapping characters.
-- Even if the user submits prompts or questions in Bangla or Banglish, your responses, explanations, step-by-step plans, code comments, and terminal messages MUST ALWAYS BE IN 100% CLEAN, PROFESSIONAL ENGLISH.
+### LANGUAGE & COMMUNICATION:
+- Communicate and respond exclusively in clear, professional English.
 
 ${envContext.summary}
 ${meshContext}
@@ -182,12 +171,7 @@ ${meshContext}
    - NEVER apply two or more commands at the same time or batch multiple run_command calls together.
    - NEVER chain lengthy commands with "&&" or ";".
    - Execute ONE command, wait for its output, inspect the result, and ONLY THEN proceed to the next step.
-   - This ensures rapid real-time feedback, prevents lengthy hangs, and keeps execution continuous, smooth, and fast.
-
-### 1. LANGUAGE & COMMUNICATION RULES (CRITICAL):
-- ALWAYS write all responses, architectural plans, explanations, code, and terminal guidance in clear, professional ENGLISH.
-- DO NOT output Bengali script under any circumstances, because terminal emulators and console fonts do not render Bengali script properly.
-- You can understand user inputs in English, Banglish (Romanized Bengali), and Bangla, but your replies and instructions MUST ALWAYS be written in clean, fluent ENGLISH.`;
+   - This ensures rapid real-time feedback, prevents lengthy hangs, and keeps execution continuous, smooth, and fast.`;
 }
 
 export const SYSTEM_PROMPT = getSystemPrompt('build');
@@ -975,13 +959,13 @@ export class IUBAgent {
         ? `[SYSTEM STATUS: ACTIVE MODE = BUILD MODE. All coding tools (write_file, edit_file, run_command) are FULLY UNLOCKED AND ACTIVE. You MUST NOT claim you are in PLAN mode or ask the user to type /build. You are ALREADY in BUILD mode. Immediately call your tools to implement, create, or edit code.]`
         : `[SYSTEM STATUS: ACTIVE MODE = PLAN MODE. You are in read-only planning mode. Formulate comprehensive step-by-step plans without modifying files.]`;
 
-    const englishEnforcedInput = `[CRITICAL: You must provide all explanations, responses, and terminal output strictly in clear ENGLISH. Do not use Bengali script under any circumstances.]\n${modeDirective}\n\n${userInput}`;
+    const enrichedInput = `${modeDirective}\n\n${userInput}`;
 
     try {
       if (this.config.provider === 'gemini') {
-        return await this.chatGemini(englishEnforcedInput, options);
+        return await this.chatGemini(enrichedInput, options);
       } else {
-        return await this.chatOpenAI(englishEnforcedInput, options);
+        return await this.chatOpenAI(enrichedInput, options);
       }
     } catch (err: any) {
       if (options?.signal?.aborted) {
@@ -995,9 +979,9 @@ export class IUBAgent {
       if (nextModel) {
         const retryOpts = { ...options, isCascadeRetry: true };
         if (this.config.provider === 'gemini') {
-          return await this.chatGemini(englishEnforcedInput, retryOpts);
+          return await this.chatGemini(enrichedInput, retryOpts);
         } else {
-          return await this.chatOpenAI(englishEnforcedInput, retryOpts);
+          return await this.chatOpenAI(enrichedInput, retryOpts);
         }
       }
       return chalk.yellow('\nAll free model tokens are currently exhausted across all providers. Check the renewal countdown above.');

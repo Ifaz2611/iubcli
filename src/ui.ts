@@ -53,8 +53,7 @@ export function printBanner(provider?: string, model?: string, workspace?: strin
     )}`
   );
   console.log(
-    `  ${dim('Speaks natural')} ${chalk.bold.white('English')}${dim(',')} ` +
-      `${chalk.bold.cyan('Banglish')}${dim(', & understands ')} ${chalk.bold.hex('#FFC72C')('Bangla')}`
+    `  ${dim('Language:')} ${chalk.bold.white('English')}`
   );
   console.log(
     `  ${dim('Developer:')} ${chalk.bold.hex('#00A3FF')('Ifaz MD Zahin')}\n`
@@ -400,10 +399,10 @@ export function showHelp(): void {
   console.log(`  11. ${chalk.bold('peer_call_tool')} - Triggers tools on peer instances across workspaces safely`);
   console.log(`  12. ${chalk.bold('peer_send_message')} - Sends structured messages/contracts to peer instances`);
 
-  console.log(`\n${chalk.yellow.bold('Language Support (Outputs strictly in English):')}`);
-  console.log(`  • ${chalk.green('English:')}  "Build a full-stack Next.js portfolio website"`);
-  console.log(`  • ${chalk.green('Banglish:')} "Express diye ekta REST API banaw auth soho"`);
-  console.log(`  • ${chalk.green('Bangla:')}   "Ekta React counter component baniye daw" (Input accepted, instructions in English)`);
+  console.log(`\n${chalk.yellow.bold('Example Prompts (English):')}`);
+  console.log(`  • ${chalk.green('Build:')}    "Build a full-stack Next.js portfolio website"`);
+  console.log(`  • ${chalk.green('API:')}      "Create an Express REST API with JWT authentication"`);
+  console.log(`  • ${chalk.green('UI:')}       "Create a responsive React counter component"`);
   console.log(`\n  ${chalk.gray('Lead Developer & Creator:')} ${chalk.hex('#00A3FF').bold('Ifaz MD Zahin')} ${chalk.dim('(https://github.com/Ifaz2611)')}`);
   console.log(chalk.dim('─'.repeat(70)) + '\n');
 }

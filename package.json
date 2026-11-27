@@ -1,7 +1,7 @@
 {
   "name": "iubcli",
   "version": "4.2.12",
-  "description": "IUB CLI — production-grade, next-generation BYOK autonomous terminal coding agent that speaks Bangla, Banglish & English with codebase grep search, dynamic free model explorer & auto-recovery, multimodal screenshot & image pasting, web ingestion, bracketed paste protection, auto-cascade resilience and OpenCode-style Build & Plan modes.",
+  "description": "IUB CLI — production-grade, next-generation BYOK autonomous terminal coding agent with codebase grep search, dynamic free model explorer & auto-recovery, multimodal screenshot & image pasting, web ingestion, bracketed paste protection, auto-cascade resilience and OpenCode-style Build & Plan modes.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -31,8 +31,6 @@
     "coding-agent",
     "iub",
     "iubcli",
-    "bangla",
-    "banglish",
     "byok",
     "terminal",
     "gemini",

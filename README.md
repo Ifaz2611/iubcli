@@ -1,6 +1,6 @@
 # IUB CLI
 
-> Autonomous BYOK terminal coding agent for Bangla, Banglish, and English, with BUILD and PLAN modes, local-first configuration, and resilient free-model failover.
+> Autonomous BYOK terminal coding agent for English workflows, with BUILD and PLAN modes, local-first configuration, and resilient free-model failover.
 
 [![npm version](https://img.shields.io/npm/v/iubcli.svg?style=flat-square&color=00A3FF)](https://www.npmjs.com/package/iubcli)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg?style=flat-square)](https://nodejs.org/)
@@ -20,7 +20,7 @@
 
 ## Overview
 
-**IUB CLI** (`iubcli`) is an open-source, serverless terminal coding assistant for developers who think, speak, and code in **Bangla**, **Banglish**, or **English**.
+**IUB CLI** (`iubcli`) is an open-source, serverless terminal coding assistant designed for developers
 
 It combines a local terminal UI with provider-backed model calls, giving you an agent that can inspect a workspace, plan changes, edit files, run commands, fetch documentation, and coordinate with other local CLI instances.
 
