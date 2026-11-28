@@ -216,7 +216,14 @@ function renderStatusLine(
 
 export function restoreTerminalViewport(): void {
   try {
-    process.stdout.write('\x1b[r\x1b[?2004l\x1b[?25h');
+    // Only emit terminal control sequences when the interactive UI actually
+    // changed terminal state. Plain commands such as `iubcli --help` must not
+    // print raw escape noise on exit.
+    const interactiveStateActive =
+      process.stdin.isRaw || _dockedActive || _dockedPromptActive || _interactiveSelectActive;
+    if (process.stdout.isTTY && interactiveStateActive) {
+      process.stdout.write('\x1b[r\x1b[?2004l\x1b[?25h');
+    }
     if (process.stdin.isTTY && process.stdin.isRaw) {
       process.stdin.setRawMode(false);
     }
@@ -1381,9 +1388,10 @@ async function _legacyDockedPrompt(options: OpenCodePromptOptions): Promise<stri
         return;
       }
 
-      // Shift+Enter / Alt+Enter: newline inside buffer
+      // Shift+Enter / Alt+Enter: newline inside buffer.
+      // A bare LF is handled as Enter below, because several terminals send LF
+      // for a normal Enter press.
       if (
-        str === '\x0a' ||
         str === '\x1b\x0d' ||
         str === '\x1b\r' ||
         str === '\x1b[13;2u' ||
@@ -1838,14 +1846,18 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
           continue;
         }
 
-        // Shift+Enter / Alt+Enter / Ctrl+J newline
+        // Shift+Enter / Alt+Enter newline.
+        // NOTE: A bare LF (\n) is deliberately NOT treated as Shift+Enter here.
+        // Many terminals on Linux/macOS/SSH send LF for a normal Enter press, and
+        // treating it as a newline made the prompt impossible to submit (the
+        // "stuck input loop" bug). Explicit modified-Enter sequences below still
+        // insert a newline.
         if (
-          rest.startsWith('\x0a') ||
           rest.startsWith('\x1b\x0d') ||
           rest.startsWith('\x1b[13;2u') ||
           rest.startsWith('\x1b[13;5u')
         ) {
-          const seqLen = rest.startsWith('\x0a') ? 1 : rest.startsWith('\x1b\x0d') ? 2 : 7;
+          const seqLen = rest.startsWith('\x1b\x0d') ? 2 : 7;
           const cur = bufferLines[cursorLine];
           const prevLine = cursorLine;
           bufferLines[cursorLine] = cur.slice(0, cursorCol);
@@ -1857,12 +1869,12 @@ async function readInlinePrompt(options: OpenCodePromptOptions): Promise<string 
           continue;
         }
 
-        if (rest.startsWith('\r\n')) {
+        if (rest.startsWith('\r\n') || rest.startsWith('\n')) {
           if (bufferLines.join('\n').trim().length > 0) {
             submit();
             return;
           }
-          idx += 2;
+          idx += rest.startsWith('\r\n') ? 2 : 1;
           continue;
         }
 

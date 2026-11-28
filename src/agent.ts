@@ -350,9 +350,15 @@ export class IUBAgent {
     }
   }
 
-  private onModelChangeCallback?: (newModel: string, newProvider?: string) => void;
+  private onModelChangeCallback?: (
+    newModel: string,
+    newProvider?: string,
+    activeConfig?: IUBCLIConfig
+  ) => void;
 
-  public setOnModelChange(cb: (newModel: string, newProvider?: string) => void): void {
+  public setOnModelChange(
+    cb: (newModel: string, newProvider?: string, activeConfig?: IUBCLIConfig) => void
+  ): void {
     this.onModelChangeCallback = cb;
   }
 
@@ -377,8 +383,23 @@ export class IUBAgent {
       if (hasSavedConfig() || this.config.apiKey !== POLLINATIONS_FREE_API_KEY) {
         saveConfig(this.config);
       }
-      this.onModelChangeCallback?.(this.config.model, this.config.provider);
+      this.onModelChangeCallback?.(this.config.model, this.config.provider, this.config);
     } catch {}
+  }
+
+  /**
+   * Sync conversation history only when switching between Gemini and OpenAI-compatible
+   * formats. Gemini -> Gemini failover must never rebuild geminiContents from the
+   * (usually empty) OpenAI mirror, and OpenAI -> OpenAI switches must not overwrite
+   * live messages with a stale Gemini transcript.
+   */
+  private syncHistoryForProviderChange(prevProvider: string, nextProvider: string): void {
+    if (prevProvider === nextProvider) return;
+    if (prevProvider !== 'gemini' && nextProvider === 'gemini') {
+      this.syncMessagesToGemini();
+    } else if (prevProvider === 'gemini' && nextProvider !== 'gemini') {
+      this.syncMessagesToOpenAI();
+    }
   }
 
   /**
@@ -582,13 +603,14 @@ export class IUBAgent {
       for (const rawModel of GEMINI_CASCADE_CHAIN) {
         const model = normalizeGeminiModel(rawModel);
         if (!this.attemptedModelsInCascade.has(model)) {
+          const prevProvider = this.config.provider;
           renderCascadeNotice(currentModel, model, noticeReason);
           this.config.provider = 'gemini';
           this.config.apiKey = geminiKey;
           this.config.model = model;
           delete (this.config as any).baseURL;
           this.initClients();
-          this.syncMessagesToGemini();
+          this.syncHistoryForProviderChange(prevProvider, 'gemini');
           return model;
         }
       }
@@ -602,13 +624,14 @@ export class IUBAgent {
 
       for (const model of OPENROUTER_FREE_CASCADE_CHAIN) {
         if (!this.attemptedModelsInCascade.has(model)) {
+          const prevProvider = this.config.provider;
           renderCascadeNotice(currentModel, model, noticeReason);
           this.config.provider = 'openrouter';
           this.config.apiKey = openRouterKey;
           this.config.model = model;
           this.config.baseURL = 'https://openrouter.ai/api/v1';
           this.initClients();
-          this.syncMessagesToOpenAI();
+          this.syncHistoryForProviderChange(prevProvider, 'openrouter');
           return model;
         }
       }
@@ -641,6 +664,7 @@ export class IUBAgent {
       for (const targetModel of candidateModels) {
         const dedupeKey = `custom:${targetModel}`;
         if (!this.attemptedModelsInCascade.has(dedupeKey) && !this.attemptedModelsInCascade.has(targetModel)) {
+          const prevProvider = this.config.provider;
           this.attemptedModelsInCascade.add(dedupeKey);
           this.attemptedModelsInCascade.add(targetModel);
           renderCascadeNotice(currentModel, targetModel, noticeReason);
@@ -649,7 +673,7 @@ export class IUBAgent {
           this.config.baseURL = customBaseURL;
           this.config.model = targetModel;
           this.initClients();
-          this.syncMessagesToOpenAI();
+          this.syncHistoryForProviderChange(prevProvider, 'custom');
           return targetModel;
         }
       }
@@ -696,16 +720,13 @@ export class IUBAgent {
     }
 
     // Active Model Explorer: dynamically scan remaining live free endpoints before giving up
+    const prevProviderBeforeExplore = this.config.provider;
     const explored = await exploreAndSelectFreeModel(this.config, this.attemptedModelsInCascade, false, false);
     if (explored) {
       this.attemptedModelsInCascade.add(explored.id);
       this.initClients();
-      if (explored.provider === 'gemini') {
-        this.syncMessagesToGemini();
-      } else {
-        this.syncMessagesToOpenAI();
-      }
-      this.onModelChangeCallback?.(explored.id, explored.provider);
+      this.syncHistoryForProviderChange(prevProviderBeforeExplore, this.config.provider);
+      this.onModelChangeCallback?.(explored.id, explored.provider, this.config);
       return explored.id;
     }
 
@@ -727,29 +748,27 @@ export class IUBAgent {
       this.attemptedModelsInCascade.clear();
       this.deadProvidersInTurn.clear();
 
+      const prevProviderBeforeRecovery = this.config.provider;
       const recovered = await exploreAndSelectFreeModel(this.config, new Set(), true, false);
       if (recovered) {
         this.initClients();
-        if (recovered.provider === 'gemini') {
-          this.syncMessagesToGemini();
-        } else {
-          this.syncMessagesToOpenAI();
-        }
-        this.onModelChangeCallback?.(recovered.id, recovered.provider);
+        this.syncHistoryForProviderChange(prevProviderBeforeRecovery, this.config.provider);
+        this.onModelChangeCallback?.(recovered.id, recovered.provider, this.config);
         return recovered.id;
       }
     }
 
     // Final guaranteed fallback: Built-in Zero-Key Pollinations AI (works without any user key)
     if (this.config.baseURL !== POLLINATIONS_BASE_URL || this.config.model !== POLLINATIONS_DEFAULT_MODEL) {
+      const prevProviderBeforeFallback = this.config.provider;
       renderCascadeNotice(currentModel, POLLINATIONS_DEFAULT_MODEL, 'Switching to Zero-Key Built-in Free AI');
       this.config.provider = 'custom';
       this.config.apiKey = POLLINATIONS_FREE_API_KEY;
       this.config.baseURL = POLLINATIONS_BASE_URL;
       this.config.model = POLLINATIONS_DEFAULT_MODEL;
       this.initClients();
-      this.syncMessagesToOpenAI();
-      this.onModelChangeCallback?.(this.config.model, this.config.provider);
+      this.syncHistoryForProviderChange(prevProviderBeforeFallback, 'custom');
+      this.onModelChangeCallback?.(this.config.model, this.config.provider, this.config);
       return this.config.model;
     }
 
@@ -762,15 +781,12 @@ export class IUBAgent {
    * Run model explorer to find and select an active model with free tokens.
    */
   public async exploreFreeModel(): Promise<string | null> {
+    const prevProvider = this.config.provider;
     const explored = await exploreAndSelectFreeModel(this.config);
     if (explored) {
       this.initClients();
-      if (explored.provider === 'gemini') {
-        this.syncMessagesToGemini();
-      } else {
-        this.syncMessagesToOpenAI();
-      }
-      this.onModelChangeCallback?.(explored.id, explored.provider);
+      this.syncHistoryForProviderChange(prevProvider, this.config.provider);
+      this.onModelChangeCallback?.(explored.id, explored.provider, this.config);
       return explored.id;
     }
     return null;
@@ -915,22 +931,68 @@ export class IUBAgent {
    * Ensure message history has no dangling tool_calls or unresponded user turns before starting a new turn.
    */
   private sanitizeDanglingHistory(): void {
-    // OpenAI: ensure any assistant message with tool_calls has matching tool responses
-    const lastOpenAI = this.openAIMessages[this.openAIMessages.length - 1] as any;
-    if (lastOpenAI && lastOpenAI.role === 'assistant' && Array.isArray(lastOpenAI.tool_calls) && lastOpenAI.tool_calls.length > 0) {
-      for (const tc of lastOpenAI.tool_calls) {
-        if (tc?.id) {
-          this.openAIMessages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
+    // OpenAI: find the most recent assistant tool_calls turn and make sure every
+    // call id has a matching tool response. This repairs histories left behind
+    // by an Escape/abort in the middle of a multi-tool turn.
+    let lastAssistantIdx = -1;
+    for (let i = this.openAIMessages.length - 1; i >= 0; i--) {
+      const msg: any = this.openAIMessages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+    if (lastAssistantIdx !== -1) {
+      const assistant: any = this.openAIMessages[lastAssistantIdx];
+      const expectedIds: string[] = assistant.tool_calls
+        .map((tc: any) => tc?.id)
+        .filter((id: any): id is string => typeof id === 'string' && id.length > 0);
+      const responded = new Set<string>();
+      let insertAt = lastAssistantIdx + 1;
+      for (let i = lastAssistantIdx + 1; i < this.openAIMessages.length; i++) {
+        const msg: any = this.openAIMessages[i];
+        if (msg.role !== 'tool') break;
+        if (msg.tool_call_id) responded.add(msg.tool_call_id);
+        insertAt = i + 1;
+      }
+      const missing = expectedIds.filter((id) => !responded.has(id));
+      if (missing.length > 0) {
+        this.openAIMessages.splice(
+          insertAt,
+          0,
+          ...missing.map((id) => ({
+            role: 'tool' as const,
+            tool_call_id: id,
             content: 'Action cancelled before completion.',
-          });
-        }
+          }))
+        );
       }
     }
 
-    // Gemini: ensure alternating user/model turns if a previous user turn was aborted before model replied
+    // Gemini: repair a model turn whose functionCall never received a response,
+    // then ensure the history ends on a model turn when the previous request was
+    // interrupted before the model replied.
     const lastGemini = this.geminiContents[this.geminiContents.length - 1];
+    if (lastGemini && lastGemini.role === 'model') {
+      const pendingCalls = (lastGemini.parts || []).filter((p: any) => p?.functionCall);
+      if (pendingCalls.length > 0) {
+        this.geminiContents.push({
+          role: 'user',
+          parts: pendingCalls.map((p: any) => ({
+            functionResponse: {
+              name: p.functionCall.name,
+              id: p.functionCall.id,
+              response: { output: 'Action cancelled before completion.' },
+            },
+          })),
+        });
+        this.geminiContents.push({
+          role: 'model',
+          parts: [{ text: '[Tool execution was interrupted by the user.]' }],
+        });
+        return;
+      }
+    }
     if (lastGemini && lastGemini.role === 'user') {
       this.geminiContents.push({
         role: 'model',
@@ -1300,8 +1362,27 @@ export class IUBAgent {
 
       // Execute each function call
       const toolResponseParts: Array<any> = [];
-      for (const call of functionCalls) {
+
+      // Always answer every function call, even when the user aborts mid-tool.
+      // Gemini rejects a model turn whose functionCall has no matching functionResponse.
+      const pushCancelledFunctionResponses = (fromIndex: number) => {
+        for (let j = fromIndex; j < functionCalls.length; j++) {
+          const pending = functionCalls[j];
+          toolResponseParts.push({
+            functionResponse: {
+              name: pending.name,
+              id: pending.id,
+              response: { output: 'Action cancelled by user (Escape).' },
+            },
+          });
+        }
+      };
+
+      for (let callIndex = 0; callIndex < functionCalls.length; callIndex++) {
+        const call = functionCalls[callIndex];
         if (options?.signal?.aborted) {
+          pushCancelledFunctionResponses(callIndex);
+          this.geminiContents.push({ role: 'user', parts: toolResponseParts });
           return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
@@ -1316,10 +1397,6 @@ export class IUBAgent {
         toolsExecutedInChat++;
         const output = await executeTool(toolName, toolArgs, this.mode, options?.signal);
 
-        if (options?.signal?.aborted) {
-          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
-        }
-
         toolResponseParts.push({
           functionResponse: {
             name: toolName,
@@ -1327,6 +1404,12 @@ export class IUBAgent {
             response: { output },
           },
         });
+
+        if (options?.signal?.aborted) {
+          pushCancelledFunctionResponses(callIndex + 1);
+          this.geminiContents.push({ role: 'user', parts: toolResponseParts });
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
+        }
       }
 
       // Append function response turn to Gemini contents (Gemini API requires role: 'user')
@@ -1648,8 +1731,28 @@ export class IUBAgent {
       }
 
       // Process tool calls
-      for (const toolCall of message.tool_calls) {
+      const toolCalls = message.tool_calls;
+
+      // Always answer every tool_call, even when the user aborts mid-tool.
+      // OpenAI rejects an assistant tool_calls message that is not followed by a
+      // matching tool response for every call id.
+      const pushCancelledToolResponses = (fromIndex: number) => {
+        for (let j = fromIndex; j < toolCalls.length; j++) {
+          const pending = toolCalls[j];
+          if (pending?.id) {
+            this.openAIMessages.push({
+              role: 'tool',
+              tool_call_id: pending.id,
+              content: 'Action cancelled by user (Escape).',
+            });
+          }
+        }
+      };
+
+      for (let callIndex = 0; callIndex < toolCalls.length; callIndex++) {
+        const toolCall = toolCalls[callIndex];
         if (options?.signal?.aborted) {
+          pushCancelledToolResponses(callIndex);
           return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
         }
 
@@ -1692,15 +1795,16 @@ export class IUBAgent {
         toolsExecutedInChat++;
         const toolResult = await executeTool(fnName, fnArgs, this.mode, options?.signal);
 
-        if (options?.signal?.aborted) {
-          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
-        }
-
         this.openAIMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
           content: toolResult,
         });
+
+        if (options?.signal?.aborted) {
+          pushCancelledToolResponses(callIndex + 1);
+          return chalk.yellow('\nTask cancelled by user (Escape key pressed).');
+        }
       }
     }
 

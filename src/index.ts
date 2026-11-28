@@ -357,13 +357,15 @@ program
       setActiveMeshNode(meshNode);
     }
 
-    // Sync session config when agent auto-cascades to another model
-    agent.setOnModelChange((newModel, newProvider) => {
-      const freshConfig = getConfig();
-      if (freshConfig) {
-        config = freshConfig;
-      }
-      if (config) {
+    // Sync session config when agent auto-cascades to another model.
+    // Use the agent's live config snapshot so key/baseURL always match the active
+    // provider (especially for the keyless Pollinations fallback, which shares the
+    // `custom` slot with any real user endpoint).
+    agent.setOnModelChange((newModel, newProvider, activeConfig) => {
+      if (activeConfig) {
+        // Keep the exact live object so the agent and interactive loop stay in sync.
+        config = activeConfig;
+      } else if (config) {
         config.model = newModel;
         if (newProvider) {
           config.provider = newProvider as any;
@@ -372,14 +374,9 @@ program
           } else if (config.provider === 'openrouter') {
             config.baseURL = 'https://openrouter.ai/api/v1';
           }
-          const saved = config.savedProviders?.[config.provider];
-          if (saved && saved.apiKey) {
-            config.apiKey = saved.apiKey;
-            if (config.provider !== 'gemini') {
-              config.baseURL = saved.baseURL || config.baseURL;
-            }
-          }
         }
+      }
+      if (config) {
         if (hasSavedConfig() || config.apiKey !== POLLINATIONS_FREE_API_KEY) {
           saveConfig(config);
         }
